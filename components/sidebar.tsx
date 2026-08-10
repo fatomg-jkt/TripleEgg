@@ -1,6 +1,5 @@
 'use client';
 
-import Image from 'next/image';
 import Link from 'next/link';
 import {usePathname} from 'next/navigation';
 import {useState} from 'react';
@@ -17,8 +16,10 @@ export function AppSidebar({mobileOpen,onClose}:{mobileOpen:boolean;onClose:()=>
     <div onClick={onClose} className={`${mobileOpen?'block':'hidden'} fixed inset-0 z-40 bg-black/60 md:hidden`}/>
     <aside className={`${mobileOpen?'translate-x-0':'-translate-x-full'} ${collapsed?'md:w-[78px]':'md:w-[250px]'} fixed inset-y-0 left-0 z-50 flex w-[250px] flex-col border-r border-[#203047] bg-[#071321] transition-all md:translate-x-0`}>
       <div className={`${collapsed?'md:flex-col md:justify-center md:gap-1 md:px-2':'px-4'} flex h-[86px] items-center justify-between border-b border-[#203047]`}>
-        <div className={`${collapsed?'md:h-10 md:w-12':'h-14 w-24'} relative shrink-0 transition-all`}>
-          <Image src="/logo-triple-egg-brand.svg" alt="Triple Egg Logo" fill priority sizes={collapsed?'(min-width: 768px) 48px, 96px':'96px'} className="object-contain object-left md:object-center"/>
+        <div className={`${collapsed?'md:w-12':'w-24'} flex h-14 shrink-0 items-center transition-all`}>
+          {/* A plain img is intentional: this portable vector must not use the Next image pipeline. */}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/triple-egg-logo.svg" alt="Triple Egg" className="h-auto max-h-14 w-full object-contain object-left md:object-center"/>
         </div>
         <button onClick={()=>setCollapsed(!collapsed)} aria-label={collapsed?'Expand sidebar':'Collapse sidebar'} className="hidden text-slate-500 hover:text-white md:block">{collapsed?<PanelLeftOpen size={16}/>:<PanelLeftClose size={19}/>}</button>
         <button onClick={onClose} aria-label="Close sidebar" className="md:hidden"><X size={19}/></button>
