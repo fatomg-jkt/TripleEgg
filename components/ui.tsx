@@ -1,0 +1,4 @@
+'use client';
+import {CheckCircle2,Clock3,XCircle} from 'lucide-react';
+export function StatusBadge({status}:{status:string}){const c=status==='Success'?'#22c55e':status==='Failed'?'#ef4444':'#3b82f6';const Icon=status==='Success'?CheckCircle2:status==='Failed'?XCircle:Clock3;return <span style={{color:c,background:c+'18',border:`1px solid ${c}40`}} className="inline-flex items-center gap-1 rounded-full px-2 py-1 text-[10px] font-bold"><Icon size={11}/>{status}</span>}
+export function Avatar({small=false}:{small?:boolean}){return <div className={`${small?'h-8 w-8 text-[10px]':'h-9 w-9 text-xs'} flex shrink-0 items-center justify-center rounded-full bg-blue-600 font-bold text-white`}>RA</div>}
