@@ -1,0 +1,2 @@
+'use client';import {useState} from 'react';import {AppSidebar} from '@/components/sidebar';import {TopHeader} from '@/components/header';
+export function ClientShell({children}:{children:React.ReactNode}){const [open,setOpen]=useState(false);return <div><AppSidebar mobileOpen={open} onClose={()=>setOpen(false)}/><div className="min-h-screen md:ml-[250px]"><TopHeader onMenu={()=>setOpen(true)}/><main className="p-4 md:p-6 xl:p-7">{children}</main></div></div>}

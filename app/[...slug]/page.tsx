@@ -1,0 +1,2 @@
+import {ClientShell} from '../client-shell';import {ModulePage} from '@/components/page';import {pageMeta} from '@/lib/data';
+export default function Page({params}:{params:{slug:string[]}}){const key=params.slug.at(-1)||'';const [title,subtitle]=pageMeta[key]||[key.replaceAll('-',' ').replace(/\b\w/g,c=>c.toUpperCase()),'Kelola data keuangan perusahaan secara terintegrasi'];return <ClientShell><ModulePage title={title} subtitle={subtitle} slug={key}/></ClientShell>}
