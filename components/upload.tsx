@@ -20,11 +20,13 @@ function statementFromModule(module:string):StatementType|''{
   const value=module.toLowerCase();
   if(value==='neraca') return 'balance-sheet';
   if(value==='laba rugi') return 'income-statement';
+  if(value==='arus kas') return 'cash-flow';
   return '';
 }
 
 function classify(type:StatementType,code:string,name:string,category:string):AccountType{
   const value=`${category} ${name}`.toLowerCase();
+  if(type==='cash-flow') return 'cash';
   if(type==='income-statement') return /pendapatan|revenue|income|sales|penjualan/.test(value)||code.startsWith('4')?'revenue':'expense';
   if(/kas|bank|cash/.test(value)) return 'cash';
   if(/piutang|receivable/.test(value)) return 'receivable';
@@ -87,17 +89,20 @@ export function UploadModal({open,onOpenChange,module}:{open:boolean;onOpenChang
   };
 
   const parsed=useMemo(()=>rows.map((row,index)=>{
+    const isCashFlow=statementType==='cash-flow';
     const code=get(row,'kode akun','account code','account_code');
-    const name=get(row,'nama akun','account name','account_name');
-    const category=get(row,'kategori','category','tipe akun','account type','account_type');
+    const category=isCashFlow?get(row,'aktivitas','activity','kategori','category'):get(row,'kategori','category','tipe akun','account type','account_type');
+    const name=isCashFlow?get(row,'keterangan','description','nama akun','account name','account_name'):get(row,'nama akun','account name','account_name');
     const type=classify(statementType,code,name,category);
     const rawAmount=get(row,'saldo','actual','amount','nilai');
-    const hasAmount=rawAmount!==''||get(row,'debit')!==''||get(row,'credit','kredit')!=='';
+    const cashIn=number(get(row,'kas masuk','cash in','cash_in','inflow'));
+    const cashOut=number(get(row,'kas keluar','cash out','cash_out','outflow'));
+    const hasAmount=isCashFlow?(get(row,'kas masuk','cash in','cash_in','inflow')!==''||get(row,'kas keluar','cash out','cash_out','outflow')!==''):rawAmount!==''||get(row,'debit')!==''||get(row,'credit','kredit')!=='';
     const fallback=new Date(year,month-1,1);
     const date=excelDate(get(row,'tanggal','date','periode','period','transaction_date'),fallback);
     const fromDC={debit:number(get(row,'debit')),credit:number(get(row,'credit','kredit'))};
     const amount=number(rawAmount);
-    const dc=rawAmount!==''?encodedAmount(type,amount):fromDC;
+    const dc=isCashFlow?{debit:cashIn,credit:cashOut}:rawAmount!==''?encodedAmount(type,amount):fromDC;
     return {index,valid:!!name&&hasAmount,code,name,category,type,date,dc};
   }),[rows,statementType,month,year]);
 
@@ -128,13 +133,14 @@ export function UploadModal({open,onOpenChange,module}:{open:boolean;onOpenChang
       created_at:createdAt
     }));
     const ext=selected.name.split('.').pop()?.toLowerCase() as ImportRecord['file_type'];
+    const moduleName=statementType==='balance-sheet'?'Neraca':statementType==='income-statement'?'Laba Rugi':'Arus Kas';
     const file:ImportRecord={
       id,
       file_name:selected.name,
       original_file_name:selected.name,
       file_type:ext,
       file_size:selected.size,
-      module:statementType==='balance-sheet'?'Neraca':'Laba Rugi',
+      module:moduleName,
       company_id:company,
       period:`${year}-${String(month).padStart(2,'0')}`,
       year,
@@ -161,56 +167,25 @@ export function UploadModal({open,onOpenChange,module}:{open:boolean;onOpenChang
   };
 
   if(!open) return null;
-  const label=statementType==='balance-sheet'?'Neraca':'Laba Rugi';
+  const label=statementType==='balance-sheet'?'Neraca':statementType==='income-statement'?'Laba Rugi':'Arus Kas';
+  const mappingDetail=statementType==='balance-sheet'?'Kode Akun, Nama Akun, Kategori, dan Saldo dipetakan ke struktur Neraca.':statementType==='income-statement'?'Kode Akun, Nama Akun, Kategori, dan Actual dipetakan ke struktur Laba Rugi.':'Tanggal, Aktivitas, Keterangan, Kas Masuk, dan Kas Keluar dipetakan ke struktur Arus Kas.';
 
   return <>
     <div className="fixed inset-0 z-[70] bg-black/70" onClick={()=>onOpenChange(false)}/>
     <section role="dialog" aria-modal="true" className="fixed left-1/2 top-1/2 z-[71] max-h-[92vh] w-[94vw] max-w-3xl -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-xl border border-[#2a3b53] bg-[#0d1928]">
       <header className="flex justify-between border-b border-[#203047] p-5">
-        <div>
-          <h2 className="font-bold">Upload Laporan — {label}</h2>
-          <p className="mt-1 text-xs text-slate-500">Upload laporan jadi. Jurnal umum tidak diperlukan untuk mengisi dashboard.</p>
-        </div>
+        <div><h2 className="font-bold">Upload Laporan — {label}</h2><p className="mt-1 text-xs text-slate-500">Upload laporan jadi. Jurnal umum tidak diperlukan untuk mengisi dashboard.</p></div>
         <button onClick={()=>onOpenChange(false)}><X size={18}/></button>
       </header>
-      <div className="overflow-x-auto border-b border-[#203047] p-4">
-        <div className="flex min-w-[600px]">
-          {steps.map((item,index)=><div className="flex flex-1 items-center gap-1 text-[9px]" key={item}><i className={`${index<=step?'bg-blue-600':'bg-[#203047]'} flex h-6 w-6 items-center justify-center rounded-full`}>{index<step?<Check size={11}/>:index+1}</i>{item}</div>)}
-        </div>
-      </div>
+      <div className="overflow-x-auto border-b border-[#203047] p-4"><div className="flex min-w-[600px]">{steps.map((item,index)=><div className="flex flex-1 items-center gap-1 text-[9px]" key={item}><i className={`${index<=step?'bg-blue-600':'bg-[#203047]'} flex h-6 w-6 items-center justify-center rounded-full`}>{index<step?<Check size={11}/>:index+1}</i>{item}</div>)}</div></div>
       <div className="p-5">
-        {step===0&&<>
-          <div className="mb-4 grid gap-3 md:grid-cols-4">
-            {!fixedType&&<label><span className="label">Jenis Laporan</span><select className="field mt-1 w-full" value={statementType} onChange={event=>setStatementType(event.target.value as StatementType)}><option value="balance-sheet">Neraca</option><option value="income-statement">Laba Rugi</option></select></label>}
-            <label className={fixedType?'md:col-span-2':''}><span className="label">Company</span><input className="field mt-1 w-full" value={company} onChange={event=>setCompany(event.target.value)}/></label>
-            <label><span className="label">Bulan</span><select className="field mt-1 w-full" value={month} onChange={event=>setMonth(Number(event.target.value))}>{monthNames.map((name,index)=><option key={name} value={index+1}>{name}</option>)}</select></label>
-            <label><span className="label">Tahun</span><input className="field mt-1 w-full" type="number" value={year} onChange={event=>setYear(Number(event.target.value))}/></label>
-          </div>
-          <label className="flex min-h-44 cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed border-[#35506e] bg-[#0a1522]">
-            <input type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={event=>event.target.files?.[0]&&read(event.target.files[0])}/>
-            {selected?<><FileSpreadsheet className="mb-3 text-green-500"/><b>{selected.name}</b><small className="text-slate-500">{rows.length} baris terbaca</small></>:<><CloudUpload className="mb-3 text-blue-500"/><b>Pilih XLSX, XLS, atau CSV</b><span className="mt-2 text-xs text-slate-500">Gunakan template {label} agar mapping otomatis akurat.</span></>}
-          </label>
-          {error&&<p className="mt-3 text-xs text-red-400">{error}</p>}
-        </>}
-        {step===1&&<State title="File valid" detail={`${valid.length} dari ${rows.length} baris laporan siap diimport.`}/>} 
-        {step===2&&<Preview rows={valid.slice(0,5)}/>} 
-        {step===3&&<State title="Mapping otomatis" detail={statementType==='balance-sheet'?'Kode Akun, Nama Akun, Kategori, dan Saldo dipetakan ke struktur Neraca.':'Kode Akun, Nama Akun, Kategori, dan Actual dipetakan ke struktur Laba Rugi.'}/>} 
-        {step===4&&<State title="Konfirmasi Import" detail={`${valid.length} baris ${label} akan disimpan untuk ${company} periode ${monthNames[month-1]} ${year}.`}/>} 
-        {step===5&&<State title="Menyimpan laporan" detail="Dashboard dan laporan keuangan akan dihitung ulang otomatis."/>}
-        {step===6&&<State title="Import berhasil" detail={`${valid.length} baris ${label} tersimpan dan laporan telah diperbarui.`}/>} 
+        {step===0&&<><div className="mb-4 grid gap-3 md:grid-cols-4">{!fixedType&&<label><span className="label">Jenis Laporan</span><select className="field mt-1 w-full" value={statementType} onChange={event=>setStatementType(event.target.value as StatementType)}><option value="balance-sheet">Neraca</option><option value="income-statement">Laba Rugi</option><option value="cash-flow">Arus Kas</option></select></label>}<label className={fixedType?'md:col-span-2':''}><span className="label">Company</span><input className="field mt-1 w-full" value={company} onChange={event=>setCompany(event.target.value)}/></label><label><span className="label">Bulan</span><select className="field mt-1 w-full" value={month} onChange={event=>setMonth(Number(event.target.value))}>{monthNames.map((name,index)=><option key={name} value={index+1}>{name}</option>)}</select></label><label><span className="label">Tahun</span><input className="field mt-1 w-full" type="number" value={year} onChange={event=>setYear(Number(event.target.value))}/></label></div><label className="flex min-h-44 cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed border-[#35506e] bg-[#0a1522]"><input type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={event=>event.target.files?.[0]&&read(event.target.files[0])}/>{selected?<><FileSpreadsheet className="mb-3 text-green-500"/><b>{selected.name}</b><small className="text-slate-500">{rows.length} baris terbaca</small></>:<><CloudUpload className="mb-3 text-blue-500"/><b>Pilih XLSX, XLS, atau CSV</b><span className="mt-2 text-xs text-slate-500">Gunakan template {label} agar mapping otomatis akurat.</span></>}</label>{error&&<p className="mt-3 text-xs text-red-400">{error}</p>}</>}
+        {step===1&&<State title="File valid" detail={`${valid.length} dari ${rows.length} baris laporan siap diimport.`}/>} {step===2&&<Preview rows={valid.slice(0,5)} cashFlow={statementType==='cash-flow'}/>} {step===3&&<State title="Mapping otomatis" detail={mappingDetail}/>} {step===4&&<State title="Konfirmasi Import" detail={`${valid.length} baris ${label} akan disimpan untuk ${company} periode ${monthNames[month-1]} ${year}.`}/>} {step===5&&<State title="Menyimpan laporan" detail="Dashboard dan laporan keuangan akan dihitung ulang otomatis."/>}{step===6&&<State title="Import berhasil" detail={`${valid.length} baris ${label} tersimpan dan laporan telah diperbarui.`}/>} 
       </div>
-      <footer className="flex justify-between border-t border-[#203047] p-4">
-        <button className="btn" onClick={()=>onOpenChange(false)}>{step===6?'Tutup':'Cancel'}</button>
-        {step<5&&<button className="btn btn-primary" disabled={!selected||!!error} onClick={next}>{step===4?'Confirm Import':'Lanjutkan'}</button>}
-      </footer>
+      <footer className="flex justify-between border-t border-[#203047] p-4"><button className="btn" onClick={()=>onOpenChange(false)}>{step===6?'Tutup':'Cancel'}</button>{step<5&&<button className="btn btn-primary" disabled={!selected||!!error} onClick={next}>{step===4?'Confirm Import':'Lanjutkan'}</button>}</footer>
     </section>
   </>;
 }
 
-function State({title,detail}:{title:string;detail:string}){
-  return <div className="py-12 text-center"><Check className="mx-auto mb-4 text-green-500"/><b>{title}</b><p className="mt-2 text-xs text-slate-500">{detail}</p></div>;
-}
-
-function Preview({rows}:{rows:Array<{code:string;name:string;category:string;dc:{debit:number;credit:number}}>}){
-  return <div><b>Preview Data</b><div className="mt-3 overflow-x-auto rounded-lg border border-[#203047]"><table><thead><tr><th>Kode Akun</th><th>Nama Akun</th><th>Kategori</th><th>Debit</th><th>Credit</th></tr></thead><tbody>{rows.map((row,index)=><tr key={index}><td>{row.code||'-'}</td><td>{row.name}</td><td>{row.category||'-'}</td><td>{row.dc.debit.toLocaleString('id-ID')}</td><td>{row.dc.credit.toLocaleString('id-ID')}</td></tr>)}</tbody></table></div></div>;
-}
+function State({title,detail}:{title:string;detail:string}){return <div className="py-12 text-center"><Check className="mx-auto mb-4 text-green-500"/><b>{title}</b><p className="mt-2 text-xs text-slate-500">{detail}</p></div>}
+function Preview({rows,cashFlow=false}:{rows:Array<{code:string;name:string;category:string;dc:{debit:number;credit:number}}>;cashFlow?:boolean}){return <div><b>Preview Data</b><div className="mt-3 overflow-x-auto rounded-lg border border-[#203047]"><table><thead><tr>{!cashFlow&&<th>Kode Akun</th>}<th>{cashFlow?'Keterangan':'Nama Akun'}</th><th>{cashFlow?'Aktivitas':'Kategori'}</th><th>{cashFlow?'Kas Masuk':'Debit'}</th><th>{cashFlow?'Kas Keluar':'Credit'}</th></tr></thead><tbody>{rows.map((row,index)=><tr key={index}>{!cashFlow&&<td>{row.code||'-'}</td>}<td>{row.name}</td><td>{row.category||'-'}</td><td>{row.dc.debit.toLocaleString('id-ID')}</td><td>{row.dc.credit.toLocaleString('id-ID')}</td></tr>)}</tbody></table></div></div>}
