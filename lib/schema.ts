@@ -4,7 +4,7 @@ export type Permission='view'|'upload'|'approve'|'export'|'edit';
 export const rolePermissions:Record<Role,Permission[]>={'Super Admin':['view','upload','approve','export','edit'],'Finance Manager':['view','upload','approve','export'],Accounting:['view','upload','edit'],Staff:['view','upload'],Viewer:['view']};
 export interface UploadedFile{id:string;file_name:string;original_file_name:string;file_type:'xlsx'|'xls'|'csv'|'pdf';file_size:number;module:string;company_id:string;department_id?:string;cost_center_id?:string;period:string;year:number;status:'Uploading'|'Processing'|'Success'|'Failed';uploaded_by:string;uploaded_at:string;processed_at?:string;error_message?:string}
 export type AccountType='asset'|'liability'|'equity'|'revenue'|'expense'|'cash'|'receivable'|'inventory'|'payable';
-export type StatementType='balance-sheet'|'income-statement'|'journal';
+export type StatementType='balance-sheet'|'income-statement'|'cash-flow'|'journal';
 export interface FinancialTransaction{id:string;transaction_date:string;account_code:string;account_name:string;account_type:AccountType;debit:number;credit:number;company_id:string;department_id:string;cost_center_id:string;period:string;month:number;year:number;description:string;source_file_id:string;created_at:string;statement_type?:StatementType;report_category?:string}
 export interface ImportRecord extends UploadedFile{rows_imported:number;rows_failed:number;raw_data?:string;statement_type?:StatementType}
 export interface DashboardFilters{period:string;month:string;year:string;company_id:string;department_id:string;cost_center_id:string;source_file_id:string}
