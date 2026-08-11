@@ -25,7 +25,6 @@ function StatementSection({title,rows,totalLabel=title,emptyText='Belum ada akun
 export function NeracaReport(){
   const {transactions,filters}=useFinancial();
   const rows=useMemo(()=>applyFilters(transactions,filters).filter(r=>r.statement_type==='balance-sheet'),[transactions,filters]);
-
   const assets=rows.filter(r=>['asset','cash','receivable','inventory'].includes(r.account_type));
   const liabilities=rows.filter(r=>['liability','payable'].includes(r.account_type));
   const equity=rows.filter(r=>r.account_type==='equity');
@@ -36,29 +35,17 @@ export function NeracaReport(){
   const aset=total(assets),liab=total(liabilities),eq=total(equity),pasiva=liab+eq,difference=aset-pasiva;
   const balanced=Math.abs(difference)<1;
   const hasData=rows.length>0;
-
   return <div className="space-y-5">
     {!hasData&&<NoDataNotice report="Neraca"/>}
-    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-      <Summary label="Total Aset" value={aset}/><Summary label="Total Liabilitas" value={liab}/><Summary label="Total Ekuitas" value={eq}/><Summary label="Status Neraca" value={difference} note={balanced?'Balance':'Perlu rekonsiliasi'} statusOnly/>
-    </div>
-    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-      <MiniMetric label="Kas & Bank" value={total(cash)}/><MiniMetric label="Piutang" value={total(receivable)}/><MiniMetric label="Persediaan" value={total(inventory)}/><MiniMetric label="Hutang Usaha" value={total(payable)}/>
-    </div>
-    <div className="rounded-xl border border-[#203047] bg-[#0a1522] p-4 md:p-5">
-      <div className="mb-4 flex flex-col justify-between gap-2 border-b border-[#203047] pb-4 md:flex-row md:items-end"><div><h2 className="text-base font-bold">Laporan Posisi Keuangan</h2><p className="mt-1 text-xs text-slate-500">Aset dibandingkan dengan Liabilitas dan Ekuitas untuk periode terpilih.</p></div><div className={`rounded-full px-3 py-1 text-[11px] font-semibold ${balanced?'bg-emerald-500/10 text-emerald-400':'bg-amber-500/10 text-amber-300'}`}>{balanced?'Neraca Balance':`Selisih ${money(difference)}`}</div></div>
-      <div className="grid gap-4 xl:grid-cols-2">
-        <StatementSection title="Aset" rows={assets} totalLabel="TOTAL ASET" emptyText="Belum ada akun Aset yang diupload."/>
-        <div className="space-y-4"><StatementSection title="Liabilitas" rows={liabilities} totalLabel="TOTAL LIABILITAS" emptyText="Belum ada akun Liabilitas yang diupload."/><StatementSection title="Ekuitas" rows={equity} totalLabel="TOTAL EKUITAS" emptyText="Belum ada akun Ekuitas yang diupload."/><div className="flex items-center justify-between rounded-xl border border-blue-500/30 bg-blue-500/10 px-4 py-4 text-sm font-bold text-blue-100"><span>TOTAL LIABILITAS & EKUITAS</span><span className="tabular-nums">{money(pasiva)}</span></div></div>
-      </div>
-    </div>
+    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4"><Summary label="Total Aset" value={aset}/><Summary label="Total Liabilitas" value={liab}/><Summary label="Total Ekuitas" value={eq}/><Summary label="Status Neraca" value={difference} note={balanced?'Balance':'Perlu rekonsiliasi'} statusOnly/></div>
+    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4"><MiniMetric label="Kas & Bank" value={total(cash)}/><MiniMetric label="Piutang" value={total(receivable)}/><MiniMetric label="Persediaan" value={total(inventory)}/><MiniMetric label="Hutang Usaha" value={total(payable)}/></div>
+    <div className="rounded-xl border border-[#203047] bg-[#0a1522] p-4 md:p-5"><div className="mb-4 flex flex-col justify-between gap-2 border-b border-[#203047] pb-4 md:flex-row md:items-end"><div><h2 className="text-base font-bold">Laporan Posisi Keuangan</h2><p className="mt-1 text-xs text-slate-500">Aset dibandingkan dengan Liabilitas dan Ekuitas untuk periode terpilih.</p></div><div className={`rounded-full px-3 py-1 text-[11px] font-semibold ${balanced?'bg-emerald-500/10 text-emerald-400':'bg-amber-500/10 text-amber-300'}`}>{balanced?'Neraca Balance':`Selisih ${money(difference)}`}</div></div><div className="grid gap-4 xl:grid-cols-2"><StatementSection title="Aset" rows={assets} totalLabel="TOTAL ASET" emptyText="Belum ada akun Aset yang diupload."/><div className="space-y-4"><StatementSection title="Liabilitas" rows={liabilities} totalLabel="TOTAL LIABILITAS" emptyText="Belum ada akun Liabilitas yang diupload."/><StatementSection title="Ekuitas" rows={equity} totalLabel="TOTAL EKUITAS" emptyText="Belum ada akun Ekuitas yang diupload."/><div className="flex items-center justify-between rounded-xl border border-blue-500/30 bg-blue-500/10 px-4 py-4 text-sm font-bold text-blue-100"><span>TOTAL LIABILITAS & EKUITAS</span><span className="tabular-nums">{money(pasiva)}</span></div></div></div></div>
   </div>;
 }
 
 export function LabaRugiReport(){
   const {transactions,filters}=useFinancial();
   const rows=useMemo(()=>applyFilters(transactions,filters).filter(r=>r.statement_type==='income-statement'),[transactions,filters]);
-
   const revenue=rows.filter(r=>r.account_type==='revenue');
   const expenses=rows.filter(r=>r.account_type==='expense');
   const hpp=expenses.filter(r=>/hpp|harga pokok|cost of goods|cogs/i.test(`${r.report_category} ${r.account_name}`));
@@ -68,24 +55,41 @@ export function LabaRugiReport(){
   const pendapatan=total(revenue),totalHpp=total(hpp),gross=pendapatan-totalHpp,operatingExpense=total(operating),otherExpense=total(nonOperating),totalExpense=operatingExpense+otherExpense,net=gross-totalExpense;
   const grossMargin=pendapatan?gross/pendapatan*100:0,netMargin=pendapatan?net/pendapatan*100:0;
   const hasData=rows.length>0;
-
   return <div className="space-y-5">
     {!hasData&&<NoDataNotice report="Laba Rugi"/>}
     <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5"><Summary label="Pendapatan" value={pendapatan}/><Summary label="HPP" value={totalHpp}/><Summary label="Laba Kotor" value={gross}/><Summary label="Total Beban" value={totalExpense}/><Summary label="Laba Bersih" value={net}/></div>
     <div className="grid gap-3 sm:grid-cols-2"><MiniMetric label="Gross Margin" value={grossMargin} percentage/><MiniMetric label="Net Profit Margin" value={netMargin} percentage/></div>
+    <div className="mx-auto max-w-6xl overflow-hidden rounded-xl border border-[#203047] bg-[#0a1522]"><div className="border-b border-[#203047] bg-[#101e30] px-5 py-4"><h2 className="text-base font-bold">Laporan Laba Rugi</h2><p className="mt-1 text-xs text-slate-500">Pendapatan dikurangi HPP dan seluruh beban untuk menghasilkan laba bersih.</p></div><IncomeSection label="PENDAPATAN" rows={revenue} subtotal="TOTAL PENDAPATAN" emptyText="Belum ada akun Pendapatan yang diupload."/><IncomeSection label="HARGA POKOK PENJUALAN (HPP)" rows={hpp} subtotal="TOTAL HPP" emptyText="Belum ada akun HPP yang diupload."/><HighlightLine label="LABA KOTOR" value={gross}/><IncomeSection label="BEBAN OPERASIONAL" rows={operating} subtotal="TOTAL BEBAN OPERASIONAL" emptyText="Belum ada akun Beban Operasional yang diupload."/><IncomeSection label="BEBAN LAIN-LAIN" rows={nonOperating} subtotal="TOTAL BEBAN LAIN-LAIN" emptyText="Belum ada akun Beban Lain-lain yang diupload."/><ReportLine label="TOTAL BEBAN" value={totalExpense} strong/><HighlightLine label="LABA BERSIH" value={net} primary/></div>
+  </div>;
+}
+
+export function CashFlowReport(){
+  const {transactions,filters}=useFinancial();
+  const rows=useMemo(()=>applyFilters(transactions,filters).filter(r=>r.statement_type==='cash-flow'),[transactions,filters]);
+  const category=(r:FinancialTransaction)=>`${r.report_category||r.description}`.toLowerCase();
+  const operating=rows.filter(r=>/operasi|operating|operasional/.test(category(r)));
+  const investing=rows.filter(r=>/investasi|investing/.test(category(r)));
+  const financing=rows.filter(r=>/pendanaan|financing/.test(category(r)));
+  const unclassified=rows.filter(r=>!operating.includes(r)&&!investing.includes(r)&&!financing.includes(r));
+  const op=total(operating),inv=total(investing),fin=total(financing),other=total(unclassified),net=op+inv+fin+other;
+  const hasData=rows.length>0;
+  return <div className="space-y-5">
+    {!hasData&&<NoDataNotice report="Arus Kas"/>}
+    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4"><Summary label="Arus Kas Operasi" value={op}/><Summary label="Arus Kas Investasi" value={inv}/><Summary label="Arus Kas Pendanaan" value={fin}/><Summary label="Kenaikan / Penurunan Bersih" value={net}/></div>
     <div className="mx-auto max-w-6xl overflow-hidden rounded-xl border border-[#203047] bg-[#0a1522]">
-      <div className="border-b border-[#203047] bg-[#101e30] px-5 py-4"><h2 className="text-base font-bold">Laporan Laba Rugi</h2><p className="mt-1 text-xs text-slate-500">Pendapatan dikurangi HPP dan seluruh beban untuk menghasilkan laba bersih.</p></div>
-      <IncomeSection label="PENDAPATAN" rows={revenue} subtotal="TOTAL PENDAPATAN" emptyText="Belum ada akun Pendapatan yang diupload."/>
-      <IncomeSection label="HARGA POKOK PENJUALAN (HPP)" rows={hpp} subtotal="TOTAL HPP" emptyText="Belum ada akun HPP yang diupload."/>
-      <HighlightLine label="LABA KOTOR" value={gross}/>
-      <IncomeSection label="BEBAN OPERASIONAL" rows={operating} subtotal="TOTAL BEBAN OPERASIONAL" emptyText="Belum ada akun Beban Operasional yang diupload."/>
-      <IncomeSection label="BEBAN LAIN-LAIN" rows={nonOperating} subtotal="TOTAL BEBAN LAIN-LAIN" emptyText="Belum ada akun Beban Lain-lain yang diupload."/>
-      <ReportLine label="TOTAL BEBAN" value={totalExpense} strong/>
-      <HighlightLine label="LABA BERSIH" value={net} primary/>
+      <div className="border-b border-[#203047] bg-[#101e30] px-5 py-4"><h2 className="text-base font-bold">Laporan Arus Kas</h2><p className="mt-1 text-xs text-slate-500">Arus kas masuk dan keluar dikelompokkan menurut aktivitas operasi, investasi, dan pendanaan.</p></div>
+      <CashFlowSection label="ARUS KAS DARI AKTIVITAS OPERASI" rows={operating} subtotal="ARUS KAS BERSIH DARI AKTIVITAS OPERASI" emptyText="Belum ada arus kas aktivitas operasi."/>
+      <CashFlowSection label="ARUS KAS DARI AKTIVITAS INVESTASI" rows={investing} subtotal="ARUS KAS BERSIH DARI AKTIVITAS INVESTASI" emptyText="Belum ada arus kas aktivitas investasi."/>
+      <CashFlowSection label="ARUS KAS DARI AKTIVITAS PENDANAAN" rows={financing} subtotal="ARUS KAS BERSIH DARI AKTIVITAS PENDANAAN" emptyText="Belum ada arus kas aktivitas pendanaan."/>
+      {unclassified.length>0&&<CashFlowSection label="AKTIVITAS LAINNYA" rows={unclassified} subtotal="ARUS KAS BERSIH AKTIVITAS LAINNYA"/>}
+      <ReportLine label="SALDO KAS AWAL PERIODE" value={0} strong/>
+      <HighlightLine label="KENAIKAN / (PENURUNAN) BERSIH KAS" value={net}/>
+      <HighlightLine label="SALDO KAS AKHIR PERIODE" value={net} primary/>
     </div>
   </div>;
 }
 
+function CashFlowSection({label,rows,subtotal,emptyText}:{label:string;rows:FinancialTransaction[];subtotal:string;emptyText?:string}){return <section><ReportLine label={label} value={total(rows)} strong/>{rows.length?<>{rows.map(r=><div key={r.id} className="grid grid-cols-[110px,minmax(0,1fr),160px] items-center gap-3 border-t border-[#203047]/60 px-5 py-2.5 text-xs"><span className="text-slate-500">{r.transaction_date}</span><span className="text-slate-200">{r.account_name}</span><span className="text-right font-medium tabular-nums text-slate-100">{money(balance(r))}</span></div>)}</>:<Hint text={emptyText||'Belum ada data.'}/>}<ReportLine label={subtotal} value={total(rows)} strong/></section>}
 function IncomeSection({label,rows,subtotal,emptyText}:{label:string;rows:FinancialTransaction[];subtotal:string;emptyText?:string}){return <section><ReportLine label={label} value={total(rows)} strong/>{rows.length?<AccountRows rows={rows}/>:<Hint text={emptyText||'Belum ada data.'}/>}<ReportLine label={subtotal} value={total(rows)} strong/></section>}
 function Summary({label,value,note,statusOnly=false}:{label:string;value:number;note?:string;statusOnly?:boolean}){return <div className="card p-4"><div className="label">{label}</div>{statusOnly?<div className={`mt-3 text-base font-bold ${note==='Balance'?'text-emerald-400':'text-amber-300'}`}>{note}</div>:<div className="mt-2 text-lg font-bold tabular-nums">{money(value)}</div>}{note&&!statusOnly&&<div className="mt-1 text-[10px] text-slate-500">{note}</div>}</div>}
 function MiniMetric({label,value,percentage=false}:{label:string;value:number;percentage?:boolean}){return <div className="rounded-xl border border-[#203047] bg-[#0b1726] px-4 py-3"><div className="text-[10px] font-semibold uppercase tracking-[.08em] text-slate-500">{label}</div><div className="mt-1 text-sm font-bold tabular-nums text-slate-100">{percentage?`${value.toFixed(1)}%`:money(value)}</div></div>}
