@@ -5,7 +5,7 @@ import {Download,FileDown,Plus,Printer,Upload} from 'lucide-react';
 import {UploadModal} from './upload';
 import {DataTable,UploadHistory} from './data-table';
 import {FilterBar} from './dashboard';
-import {LabaRugiReport,NeracaReport} from './financial-reports';
+import {CashFlowReport,LabaRugiReport,NeracaReport} from './financial-reports';
 
 const templateColumns:Record<string,string[]>={
   dashboard:['Kode Akun','Nama Akun','Kategori','Saldo'],
@@ -33,6 +33,8 @@ function downloadTemplate(title:string,slug='dashboard'){
     [['110101','Kas & Bank','Aset Lancar','100000000'],['120101','Piutang Usaha','Aset Lancar','50000000'],['210101','Utang Usaha','Liabilitas Jangka Pendek','30000000'],['310101','Modal Saham','Ekuitas','120000000']]:
     slug==='laba-rugi'?
     [['410101','Pendapatan Penjualan','Pendapatan','250000000'],['510101','Harga Pokok Penjualan','HPP','100000000'],['610101','Beban Gaji','Beban Operasional','50000000'],['620101','Beban Utilitas','Beban Operasional','10000000']]:
+    slug==='arus-kas'?
+    [['2026-07-01','Aktivitas Operasi','Penerimaan dari pelanggan','150000000',''],['2026-07-05','Aktivitas Operasi','Pembayaran kepada pemasok','','60000000'],['2026-07-12','Aktivitas Investasi','Pembelian peralatan','','25000000'],['2026-07-20','Aktivitas Pendanaan','Setoran modal','50000000','']]:
     [columns.map(c=>c.toLowerCase().includes('kode')?'110001':c.toLowerCase().includes('nama')?'Contoh Akun':c.toLowerCase().includes('status')?'Active':'')];
   const escape=(value:string)=>`"${String(value).replaceAll('"','""')}"`;
   const csv=['sep=;',columns.map(escape).join(';'),...rows.map(row=>row.map(escape).join(';'))].join('\r\n');
@@ -44,6 +46,7 @@ export function PageHeader({title,subtitle,onUpload,slug='dashboard',extra}:{tit
 }
 
 export function ModulePage({title,subtitle,slug}:{title:string;subtitle:string;slug:string}){
-  const [open,setOpen]=useState(false);const [tab,setTab]=useState<'data'|'history'>('data');const financialReport=slug==='neraca'||slug==='laba-rugi';
-  return <><PageHeader title={title} subtitle={subtitle} slug={slug} onUpload={()=>setOpen(true)}/><div className="mt-6"><FilterBar/></div><div className="mt-6 flex border-b border-[#203047]"><button onClick={()=>setTab('data')} className={`${tab==='data'?'border-blue-500 text-white':'border-transparent text-slate-500'} border-b-2 px-5 py-3 text-xs font-semibold`}>Laporan</button><button onClick={()=>setTab('history')} className={`${tab==='history'?'border-blue-500 text-white':'border-transparent text-slate-500'} border-b-2 px-5 py-3 text-xs font-semibold`}>Upload History</button></div><div className="mt-4">{tab==='history'?<UploadHistory/>:financialReport?(slug==='neraca'?<NeracaReport/>:<LabaRugiReport/>):<><div className="mb-4 flex items-center justify-between"><div><h2 className="text-sm font-semibold">Data {title}</h2><p className="mt-1 text-[10px] text-slate-500">Data operasional modul.</p></div><button className="btn"><Plus size={14}/> Tambah Data</button></div><DataTable type={slug}/></>}</div><UploadModal open={open} onOpenChange={setOpen} module={title}/></>;
+  const [open,setOpen]=useState(false);const [tab,setTab]=useState<'data'|'history'>('data');const financialReport=slug==='neraca'||slug==='laba-rugi'||slug==='arus-kas';
+  const report=slug==='neraca'?<NeracaReport/>:slug==='laba-rugi'?<LabaRugiReport/>:<CashFlowReport/>;
+  return <><PageHeader title={title} subtitle={subtitle} slug={slug} onUpload={()=>setOpen(true)}/><div className="mt-6"><FilterBar/></div><div className="mt-6 flex border-b border-[#203047]"><button onClick={()=>setTab('data')} className={`${tab==='data'?'border-blue-500 text-white':'border-transparent text-slate-500'} border-b-2 px-5 py-3 text-xs font-semibold`}>Laporan</button><button onClick={()=>setTab('history')} className={`${tab==='history'?'border-blue-500 text-white':'border-transparent text-slate-500'} border-b-2 px-5 py-3 text-xs font-semibold`}>Upload History</button></div><div className="mt-4">{tab==='history'?<UploadHistory/>:financialReport?report:<><div className="mb-4 flex items-center justify-between"><div><h2 className="text-sm font-semibold">Data {title}</h2><p className="mt-1 text-[10px] text-slate-500">Data operasional modul.</p></div><button className="btn"><Plus size={14}/> Tambah Data</button></div><DataTable type={slug}/></>}</div><UploadModal open={open} onOpenChange={setOpen} module={title}/></>;
 }
