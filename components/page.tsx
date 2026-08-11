@@ -7,6 +7,8 @@ import {DataTable,UploadHistory} from './data-table';
 import {FilterBar} from './dashboard';
 import {CashFlowReport,LabaRugiReport,NeracaReport} from './financial-reports';
 import {BudgetReport} from './budget-reports';
+import {PermissionGuard} from './auth-provider';
+import type {MenuId} from '@/lib/permissions';
 
 const templateColumns:Record<string,string[]>={
   dashboard:['Kode Akun','Nama Akun','Kategori','Saldo'],
@@ -28,7 +30,7 @@ const templateColumns:Record<string,string[]>={
   'account-receivable':['Tanggal','Customer','Invoice','Due Date','Kode Akun','Amount','Department','Cost Center']
 };
 
-function downloadTemplate(title:string,slug='dashboard'){
+export function downloadTemplate(title:string,slug='dashboard'){
   const columns=templateColumns[slug]||['Kode Akun','Nama Akun','Kategori','Saldo'];
   const rows=slug==='neraca'?
     [['110101','Kas & Bank','Aset Lancar','100000000'],['120101','Piutang Usaha','Aset Lancar','50000000'],['210101','Utang Usaha','Liabilitas Jangka Pendek','30000000'],['310101','Modal Saham','Ekuitas','120000000']]:
@@ -44,11 +46,11 @@ function downloadTemplate(title:string,slug='dashboard'){
 }
 
 export function PageHeader({title,subtitle,onUpload,slug='dashboard',extra}:{title:string;subtitle:string;onUpload:()=>void;slug?:string;extra?:React.ReactNode}){
-  return <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-center"><div><div className="label mb-2 text-blue-500">Finance / Overview</div><h1 className="text-2xl font-bold tracking-tight">{title}</h1><p className="mt-1 text-xs text-slate-500">{subtitle}</p></div><div className="flex flex-wrap gap-2">{extra}<button onClick={onUpload} className="btn btn-primary"><Upload size={14}/> Upload File</button><button onClick={()=>downloadTemplate(title,slug)} className="btn" type="button"><FileDown size={14}/> Download Template</button><button className="btn"><Download size={14}/> Export Excel</button><button className="btn desktop-only"><Printer size={14}/> Print</button></div></div>;
+  return <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-center"><div><div className="label mb-2 text-blue-500">Finance / Overview</div><h1 className="text-2xl font-bold tracking-tight">{title}</h1><p className="mt-1 text-xs text-slate-500">{subtitle}</p></div><div className="flex flex-wrap gap-2">{extra}<PermissionGuard menu={slug as MenuId} action="upload"><button onClick={onUpload} className="btn btn-primary"><Upload size={14}/> Upload File</button></PermissionGuard><button onClick={()=>downloadTemplate(title,slug)} className="btn" type="button"><FileDown size={14}/> Download Template</button><PermissionGuard menu={slug as MenuId} action="export"><button className="btn"><Download size={14}/> Export Excel</button><button className="btn desktop-only"><Printer size={14}/> Print</button></PermissionGuard></div></div>;
 }
 
 export function ModulePage({title,subtitle,slug}:{title:string;subtitle:string;slug:string}){
   const [open,setOpen]=useState(false);const [tab,setTab]=useState<'data'|'history'>('data');const financialReport=slug==='neraca'||slug==='laba-rugi'||slug==='arus-kas';const budgetType=slug==='ringkasan-budget'?'summary':slug==='budget-vs-actual'?'comparison':slug==='budget-department'?'department':slug==='budget-account'?'account':slug==='upload-budget'?'summary':null;
   const report=slug==='neraca'?<NeracaReport/>:slug==='laba-rugi'?<LabaRugiReport/>:<CashFlowReport/>;
-  return <><PageHeader title={title} subtitle={subtitle} slug={slug} onUpload={()=>setOpen(true)}/><div className="mt-6"><FilterBar/></div><div className="mt-6 flex border-b border-[#203047]"><button onClick={()=>setTab('data')} className={`${tab==='data'?'border-blue-500 text-white':'border-transparent text-slate-500'} border-b-2 px-5 py-3 text-xs font-semibold`}>Laporan</button><button onClick={()=>setTab('history')} className={`${tab==='history'?'border-blue-500 text-white':'border-transparent text-slate-500'} border-b-2 px-5 py-3 text-xs font-semibold`}>Upload History</button></div><div className="mt-4">{tab==='history'?<UploadHistory module={budgetType?'Budget':undefined}/>:budgetType?<BudgetReport type={budgetType}/>:financialReport?report:<><div className="mb-4 flex items-center justify-between"><div><h2 className="text-sm font-semibold">Data {title}</h2><p className="mt-1 text-[10px] text-slate-500">Data operasional modul.</p></div><button className="btn"><Plus size={14}/> Tambah Data</button></div><DataTable type={slug}/></>}</div><UploadModal open={open} onOpenChange={setOpen} module={budgetType?'Budget':title}/></>;
+  return <><PageHeader title={title} subtitle={subtitle} slug={slug} onUpload={()=>setOpen(true)}/><div className="mt-6"><FilterBar/></div><div className="mt-6 flex border-b border-[#203047]"><button onClick={()=>setTab('data')} className={`${tab==='data'?'border-blue-500 text-white':'border-transparent text-slate-500'} border-b-2 px-5 py-3 text-xs font-semibold`}>Laporan</button><button onClick={()=>setTab('history')} className={`${tab==='history'?'border-blue-500 text-white':'border-transparent text-slate-500'} border-b-2 px-5 py-3 text-xs font-semibold`}>Upload History</button></div><div className="mt-4">{tab==='history'?<UploadHistory module={budgetType?'Budget':undefined}/>:budgetType?<BudgetReport type={budgetType}/>:financialReport?report:<><div className="mb-4 flex items-center justify-between"><div><h2 className="text-sm font-semibold">Data {title}</h2><p className="mt-1 text-[10px] text-slate-500">Data operasional modul.</p></div><PermissionGuard menu={slug as MenuId} action="edit"><button className="btn"><Plus size={14}/> Tambah Data</button></PermissionGuard></div><DataTable type={slug}/></>}</div><UploadModal open={open} onOpenChange={setOpen} module={budgetType?'Budget':title}/></>;
 }
