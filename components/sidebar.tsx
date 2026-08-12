@@ -26,6 +26,7 @@ export function AppSidebar({mobileOpen,onClose}:{mobileOpen:boolean;onClose:()=>
       </div>
 
       <nav className="scrollbar flex-1 overflow-y-auto p-3">
+        <Link onClick={onClose} href="/administration/users" className={`${path==='/administration/users'?'bg-blue-600 text-white':'text-slate-400 hover:bg-white/5'} mb-2 flex items-center gap-3 rounded-lg px-3 py-2.5 text-xs font-semibold`}>Users</Link>
         <div className={`${collapsed?'md:hidden':''} label mb-2 px-3 pt-2`}>Workspace</div>
         {menu.map((group,i)=>group.items?
           <div key={group.title} className="mb-1">
