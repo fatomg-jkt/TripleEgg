@@ -16,3 +16,6 @@ If `DATABASE_URL` or `AUTH_SECRET` is absent, compilation still succeeds and aut
 ## Preview verification
 
 After assigning the Preview environment variables and deploying, verify login, wrong-password JSON, session refresh, persisted `last_login`, add/edit/disable user behavior, then run `npm run lint`, `npx tsc --noEmit`, and `npm run build`.
+
+## Persistent RBAC
+Roles and menu/action grants (`View`, `Upload`, `Edit`, `Delete`, `Export`, `Approve`) are stored in PostgreSQL tables created by `migrations/002_rbac.sql`. The sidebar reads effective grants from the authenticated server session; Administration changes use permission-validated APIs and survive refreshes and redeployments.
