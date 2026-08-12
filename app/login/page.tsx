@@ -1,0 +1,2 @@
+import {Suspense} from 'react';import {AuthBrand,LoginForm} from '@/components/auth-form';
+export default function Login(){return <main className="flex min-h-screen items-center justify-center bg-[radial-gradient(circle_at_top,#15305a_0,#07111f_48%)] p-4"><section className="card w-full max-w-md p-7 md:p-9"><AuthBrand/><Suspense fallback={<div>Loading...</div>}><LoginForm/></Suspense></section></main>}

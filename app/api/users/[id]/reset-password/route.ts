@@ -1,0 +1,2 @@
+import {NextRequest,NextResponse} from 'next/server';import {requireUser,sameOrigin,unauthorized} from '@/lib/auth/api';import {userRepository} from '@/lib/auth/users';
+export async function POST(request:NextRequest,{params}:{params:{id:string}}){if(!sameOrigin(request)||!await requireUser(true))return unauthorized();const {password}=await request.json();if(String(password||'').length<8)return NextResponse.json({error:'Temporary password minimal 8 karakter.'},{status:400});await userRepository.password(params.id,password,true);return NextResponse.json({ok:true})}

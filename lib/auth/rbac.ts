@@ -1,0 +1,3 @@
+import type {Permission,SafeUser} from '@/lib/schema';import {rolePermissions} from '@/lib/schema';
+export function canAccess(user:SafeUser|undefined,permission:Permission){if(!user||user.status!=='Active')return false;const override=user.permissionOverrides?.[permission];return override??rolePermissions[user.role].includes(permission)}
+export function inScope(user:SafeUser,row:{company_id?:string;department_id?:string;cost_center_id?:string}){return (user.company==='All'||!row.company_id||row.company_id===user.company)&&(user.department==='All'||!row.department_id||row.department_id===user.department)&&(user.costCenter==='All'||!row.cost_center_id||row.cost_center_id===user.costCenter)}
