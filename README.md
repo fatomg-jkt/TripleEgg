@@ -19,3 +19,5 @@ After assigning the Preview environment variables and deploying, verify login, w
 
 ## Persistent RBAC
 Roles and menu/action grants (`View`, `Upload`, `Edit`, `Delete`, `Export`, `Approve`) are stored in PostgreSQL tables created by `migrations/002_rbac.sql`. The sidebar reads effective grants from the authenticated server session; Administration changes use permission-validated APIs and survive refreshes and redeployments.
+
+<!-- Deployment refresh: Vercel Preview rebuild trigger; no application behavior changed. -->
