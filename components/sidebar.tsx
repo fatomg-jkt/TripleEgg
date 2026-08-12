@@ -4,10 +4,12 @@ import Link from 'next/link';
 import {usePathname} from 'next/navigation';
 import {useState} from 'react';
 import {ChevronDown,LayoutDashboard,PanelLeftClose,PanelLeftOpen,X} from 'lucide-react';
-import {menu} from '@/lib/data';
+import {menu,menuIdForPath} from '@/lib/data';
+import {useAuth} from './auth-provider';
 
 export function AppSidebar({mobileOpen,onClose}:{mobileOpen:boolean;onClose:()=>void}){
   const path=usePathname();
+  const {can}=useAuth();
   const [collapsed,setCollapsed]=useState(false);
   const [open,setOpen]=useState<string[]>(menu.map(x=>x.title));
   const toggle=(x:string)=>setOpen(o=>o.includes(x)?o.filter(v=>v!==x):[...o,x]);
@@ -27,14 +29,14 @@ export function AppSidebar({mobileOpen,onClose}:{mobileOpen:boolean;onClose:()=>
 
       <nav className="scrollbar flex-1 overflow-y-auto p-3">
         <div className={`${collapsed?'md:hidden':''} label mb-2 px-3 pt-2`}>Workspace</div>
-        {menu.map((group,i)=>group.items?
+        {menu.filter(group=>group.items?group.items.some(([,href])=>can(menuIdForPath(href),'view')):can('dashboard','view')).map((group,i)=>group.items?
           <div key={group.title} className="mb-1">
             <button onClick={()=>toggle(group.title)} className={`${collapsed?'md:justify-center':''} flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-xs font-semibold text-slate-400 hover:bg-white/5 hover:text-white`}>
               <span className="flex items-center gap-3"><span className="flex h-5 w-5 items-center justify-center text-[10px] font-bold text-slate-500">0{i+2}</span><span className={`${collapsed?'md:hidden':''}`}>{group.title}</span></span>
               <ChevronDown size={14} className={`${open.includes(group.title)?'rotate-180':''} ${collapsed?'md:hidden':''} transition`}/>
             </button>
             {open.includes(group.title)&&<div className={`${collapsed?'md:hidden':''} ml-[22px] border-l border-[#203047] pl-3`}>
-              {group.items.map(([label,href])=><Link onClick={onClose} key={href} href={href} className={`${path===href?'bg-blue-600/15 text-blue-400 before:bg-blue-500':'text-slate-500 before:bg-transparent'} relative flex items-center rounded-lg px-3 py-2 text-[11px] font-medium before:absolute before:-left-[14px] before:h-4 before:w-[2px] hover:text-white`}>{label}</Link>)}
+              {group.items.filter(([,href])=>can(menuIdForPath(href),'view')).map(([label,href])=><Link onClick={onClose} key={href} href={href} className={`${path===href?'bg-blue-600/15 text-blue-400 before:bg-blue-500':'text-slate-500 before:bg-transparent'} relative flex items-center rounded-lg px-3 py-2 text-[11px] font-medium before:absolute before:-left-[14px] before:h-4 before:w-[2px] hover:text-white`}>{label}</Link>)}
             </div>}
           </div>
           :<Link key={group.title} href="/" className={`${path==='/'?'bg-blue-600 text-white':'text-slate-400 hover:bg-white/5'} mb-2 flex items-center gap-3 rounded-lg px-3 py-2.5 text-xs font-semibold`}><LayoutDashboard size={17}/><span className={`${collapsed?'md:hidden':''}`}>Dashboard</span></Link>)}

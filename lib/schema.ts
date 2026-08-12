@@ -1,7 +1,12 @@
 /** Backend-ready domain contracts. These mirror the planned database entities. */
 export type Role='Super Admin'|'Finance Manager'|'Accounting'|'Staff'|'Viewer';
-export type Permission='view'|'upload'|'approve'|'export'|'edit';
-export const rolePermissions:Record<Role,Permission[]>={'Super Admin':['view','upload','approve','export','edit'],'Finance Manager':['view','upload','approve','export'],Accounting:['view','upload','edit'],Staff:['view','upload'],Viewer:['view']};
+export type Permission='view'|'upload'|'approve'|'export'|'edit'|'delete';
+export interface UserEntity{id:string;name:string;email:string;role_id:string;status:string;last_login:string}
+export interface RoleEntity{id:string;name:Role}
+export interface PermissionEntity{id:string;menu:string;action:Permission}
+export interface RolePermissionEntity{role_id:string;permission_id:string;allowed:boolean}
+export interface UserPermissionEntity{user_id:string;permission_id:string;allowed:boolean}
+export interface UserScopeEntity{user_id:string;company_id?:string;department_id?:string;cost_center_id?:string}
 export interface UploadedFile{id:string;file_name:string;original_file_name:string;file_type:'xlsx'|'xls'|'csv'|'pdf';file_size:number;module:string;company_id:string;department_id?:string;cost_center_id?:string;period:string;year:number;status:'Uploading'|'Processing'|'Success'|'Failed';uploaded_by:string;uploaded_at:string;processed_at?:string;error_message?:string}
 export type AccountType='asset'|'liability'|'equity'|'revenue'|'expense'|'cash'|'receivable'|'inventory'|'payable';
 export type StatementType='balance-sheet'|'income-statement'|'cash-flow'|'journal';
