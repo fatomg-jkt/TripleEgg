@@ -1,1 +1,1 @@
-import {ActivateAccount} from '@/components/activate-account';export default function Page(){return <main className="flex min-h-screen items-center justify-center bg-[#071321] p-5"><ActivateAccount/></main>}
+import {ActivateAccount} from '@/components/activate-account';export default function Page({searchParams}:{searchParams:{email?:string}}){return <main className="flex min-h-screen items-center justify-center bg-[#071321] p-5"><ActivateAccount initialEmail={searchParams.email||''}/></main>}
