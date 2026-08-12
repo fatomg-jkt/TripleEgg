@@ -3,7 +3,7 @@ import bcrypt from 'bcryptjs';
 import {database} from './db';
 import type {Role} from './schema';
 
-export type UserStatus='Active'|'Disabled';
+export type UserStatus='Active'|'Pending Activation'|'Disabled';
 export interface User {id:string;name:string;email:string;role:Role;company:string;department:string;costCenter:string;status:UserStatus;lastLogin:string|null;requirePasswordChange:boolean;sessionVersion:number;createdAt:string;updatedAt:string}
 export interface UserWithPassword extends User {passwordHash:string}
 type Row=Record<string,unknown>;
@@ -22,6 +22,7 @@ export function ensureUserSchema(){return ready??=(async()=>{
     require_password_change boolean NOT NULL DEFAULT false, session_version integer NOT NULL DEFAULT 1,
     created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now()
   )`);
+  await db.query(`CREATE TABLE IF NOT EXISTS user_activation_otps (id uuid PRIMARY KEY,user_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,otp_hash text NOT NULL,expires_at timestamptz NOT NULL,attempts integer NOT NULL DEFAULT 0,used_at timestamptz,created_at timestamptz NOT NULL DEFAULT now(),last_sent_at timestamptz NOT NULL DEFAULT now())`);
   await db.query(`CREATE TABLE IF NOT EXISTS password_reset_tokens (token_hash text PRIMARY KEY, user_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE, expires_at timestamptz NOT NULL, used_at timestamptz)`);
   const existing=await db.query('SELECT id,email FROM users WHERE lower(email)=ANY($1)',[[OLD_ADMIN,ADMIN_EMAIL]]);
   const old=existing.rows.find(x=>x.email.toLowerCase()===OLD_ADMIN), current=existing.rows.find(x=>x.email.toLowerCase()===ADMIN_EMAIL);
@@ -31,6 +32,7 @@ export function ensureUserSchema(){return ready??=(async()=>{
     const hash=await bcrypt.hash(process.env.SUPER_ADMIN_PASSWORD,12);
     await db.query(`INSERT INTO users(id,name,email,password_hash,role,company,department,cost_center,status,require_password_change) VALUES($1,'Raisa Admin',$2,$3,'Super Admin','All','All','All','Active',false) ON CONFLICT(email) DO NOTHING`,[randomUUID(),ADMIN_EMAIL,hash]);
   }
+  const owners=await db.query("SELECT count(*)::int n FROM users WHERE role='Owner'");if(!owners.rows[0].n&&process.env.OWNER_EMAIL&&process.env.OWNER_PASSWORD){const hash=await bcrypt.hash(process.env.OWNER_PASSWORD,12);await db.query(`INSERT INTO users(id,name,email,password_hash,role,company,department,cost_center,status,require_password_change) VALUES($1,'Owner',lower($2),$3,'Owner','All','All','All','Active',false) ON CONFLICT(email) DO NOTHING`,[randomUUID(),process.env.OWNER_EMAIL,hash])}
 })();}
 
 export const users={

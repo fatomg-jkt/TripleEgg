@@ -21,3 +21,6 @@ After assigning the Preview environment variables and deploying, verify login, w
 Roles and menu/action grants (`View`, `Upload`, `Edit`, `Delete`, `Export`, `Approve`) are stored in PostgreSQL tables created by `migrations/002_rbac.sql`. The sidebar reads effective grants from the authenticated server session; Administration changes use permission-validated APIs and survive refreshes and redeployments.
 
 <!-- Deployment refresh: Vercel Preview rebuild trigger; no application behavior changed. -->
+
+## Activation email and Owner bootstrap
+Configure server-only `MICROSOFT_TENANT_ID`, `MICROSOFT_CLIENT_ID`, `MICROSOFT_CLIENT_SECRET`, `MAIL_FROM`, and `APP_URL` for Microsoft Graph activation/reset email. `OWNER_EMAIL` and `OWNER_PASSWORD` bootstrap the first Owner only when none exists; credentials are never overwritten on later deploys.

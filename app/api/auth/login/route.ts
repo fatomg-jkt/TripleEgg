@@ -8,6 +8,7 @@ export async function POST(request:Request){try{
   const body=await request.json().catch(()=>null) as {email?:string;password?:string}|null;
   if(!body?.email||!body.password)return jsonError('Email dan password wajib diisi.',400);
   const user=await users.findByEmail(body.email);
+  if(user?.status==='Pending Activation')return jsonError('Akun belum diaktifkan. Silakan buat password menggunakan OTP yang dikirim ke email Anda.',403);
   if(!user||!(await bcrypt.compare(body.password,user.passwordHash)))return jsonError('Email atau password salah.',401);
   if(user.status!=='Active')return jsonError('Akun Anda dinonaktifkan. Hubungi administrator.',403);
   await users.updateLastLogin(user.id);
