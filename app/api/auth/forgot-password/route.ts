@@ -1,0 +1,2 @@
+import {NextRequest,NextResponse} from 'next/server';import {sameOrigin} from '@/lib/auth/api';
+export async function POST(request:NextRequest){if(!sameOrigin(request))return NextResponse.json({error:'Invalid origin'},{status:403});await request.json();/* Backend-ready hook: enqueue a single-use reset token with an email provider here. Never disclose account existence. */return NextResponse.json({message:'Jika email terdaftar, instruksi reset password akan dikirim.'})}

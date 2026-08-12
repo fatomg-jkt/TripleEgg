@@ -1,0 +1,1 @@
+import {AuthBrand,ForgotForm} from '@/components/auth-form';export default function Forgot(){return <main className="flex min-h-screen items-center justify-center p-4"><section className="card w-full max-w-md p-8"><AuthBrand/><ForgotForm/></section></main>}

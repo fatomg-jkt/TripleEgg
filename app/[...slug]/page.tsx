@@ -1,6 +1,7 @@
 import {ClientShell} from '../client-shell';
 import {ModulePage} from '@/components/page';
 import {pageMeta} from '@/lib/data';
+import {UserManagement} from '@/components/user-management';
 
 const routeMeta:Record<string,[string,string,string]>={
   'budgeting/ringkasan':['Ringkasan Budget','Pantau alokasi dan realisasi anggaran','ringkasan-budget'],
@@ -12,6 +13,7 @@ const routeMeta:Record<string,[string,string,string]>={
 
 export default function Page({params}:{params:{slug:string[]}}){
   const route=params.slug.join('/');
+  if(route==='administration/users')return <ClientShell><UserManagement/></ClientShell>;
   const last=params.slug.at(-1)||'';
   const budget=routeMeta[route];
   const [title,subtitle]=budget?.slice(0,2) as [string,string]||pageMeta[last]||[last.replaceAll('-',' ').replace(/\b\w/g,c=>c.toUpperCase()),'Kelola data keuangan perusahaan secara terintegrasi'];

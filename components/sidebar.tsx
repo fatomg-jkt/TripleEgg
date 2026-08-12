@@ -5,11 +5,13 @@ import {usePathname} from 'next/navigation';
 import {useState} from 'react';
 import {ChevronDown,LayoutDashboard,PanelLeftClose,PanelLeftOpen,X} from 'lucide-react';
 import {menu} from '@/lib/data';
+import {useAuth} from '@/lib/auth/auth-provider';
 
 export function AppSidebar({mobileOpen,onClose}:{mobileOpen:boolean;onClose:()=>void}){
   const path=usePathname();
   const [collapsed,setCollapsed]=useState(false);
   const [open,setOpen]=useState<string[]>(menu.map(x=>x.title));
+  const {user}=useAuth();
   const toggle=(x:string)=>setOpen(o=>o.includes(x)?o.filter(v=>v!==x):[...o,x]);
 
   return <>
@@ -39,6 +41,7 @@ export function AppSidebar({mobileOpen,onClose}:{mobileOpen:boolean;onClose:()=>
           </div>
           :<Link key={group.title} href="/" className={`${path==='/'?'bg-blue-600 text-white':'text-slate-400 hover:bg-white/5'} mb-2 flex items-center gap-3 rounded-lg px-3 py-2.5 text-xs font-semibold`}><LayoutDashboard size={17}/><span className={`${collapsed?'md:hidden':''}`}>Dashboard</span></Link>)}
       </nav>
+      {user?.role==='Super Admin'&&<Link onClick={onClose} href="/administration/users" className="m-3 rounded-lg border border-[#203047] px-3 py-3 text-xs font-semibold text-slate-300 hover:bg-white/5">Administration · Users</Link>}
     </aside>
   </>;
 }

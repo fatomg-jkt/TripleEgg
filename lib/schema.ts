@@ -10,3 +10,6 @@ export interface ImportRecord extends UploadedFile{rows_imported:number;rows_fai
 export interface BudgetRecord{id:string;period:string;month:number;year:number;company_id:string;department_id:string;cost_center_id:string;account_code:string;account_name:string;category:string;budget:number;source_file_id:string;created_at:string}
 export interface DashboardFilters{period:string;month:string;year:string;company_id:string;department_id:string;cost_center_id:string;source_file_id:string}
 export type EntityName='users'|'companies'|'departments'|'cost_centers'|'chart_of_accounts'|'financial_transactions'|'budgets'|'uploaded_files'|'upload_logs'|'financial_periods';
+export type UserStatus='Active'|'Disabled';
+export interface AppUser{id:string;name:string;email:string;passwordHash:string;role:Role;company:string;department:string;costCenter:string;status:UserStatus;lastLogin:string|null;requirePasswordChange:boolean;permissionOverrides?:Partial<Record<Permission,boolean>>}
+export type SafeUser=Omit<AppUser,'passwordHash'>;
