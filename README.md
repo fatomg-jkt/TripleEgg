@@ -23,4 +23,4 @@ Roles and menu/action grants (`View`, `Upload`, `Edit`, `Delete`, `Export`, `App
 <!-- Deployment refresh: Vercel Preview rebuild trigger; no application behavior changed. -->
 
 ## Activation email and Owner bootstrap
-Configure server-only `MICROSOFT_TENANT_ID`, `MICROSOFT_CLIENT_ID`, `MICROSOFT_CLIENT_SECRET`, `MAIL_FROM`, and `APP_URL` for Microsoft Graph activation/reset email. `OWNER_EMAIL` and `OWNER_PASSWORD` bootstrap the first Owner only when none exists; credentials are never overwritten on later deploys.
+Configure server-only `MICROSOFT_TENANT_ID`, `MICROSOFT_CLIENT_ID`, `MICROSOFT_CLIENT_SECRET`, `MAIL_FROM`, and `APP_URL` for Microsoft Graph activation/reset email. The first Owner is created by a Super Admin as a Pending Activation account, then securely chooses a password through the email OTP flow.

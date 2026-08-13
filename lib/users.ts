@@ -32,7 +32,6 @@ export function ensureUserSchema(){return ready??=(async()=>{
     const hash=await bcrypt.hash(process.env.SUPER_ADMIN_PASSWORD,12);
     await db.query(`INSERT INTO users(id,name,email,password_hash,role,company,department,cost_center,status,require_password_change) VALUES($1,'Raisa Admin',$2,$3,'Super Admin','All','All','All','Active',false) ON CONFLICT(email) DO NOTHING`,[randomUUID(),ADMIN_EMAIL,hash]);
   }
-  const owners=await db.query("SELECT count(*)::int n FROM users WHERE role='Owner'");if(!owners.rows[0].n&&process.env.OWNER_EMAIL&&process.env.OWNER_PASSWORD){const hash=await bcrypt.hash(process.env.OWNER_PASSWORD,12);await db.query(`INSERT INTO users(id,name,email,password_hash,role,company,department,cost_center,status,require_password_change) VALUES($1,'Owner',lower($2),$3,'Owner','All','All','All','Active',false) ON CONFLICT(email) DO NOTHING`,[randomUUID(),process.env.OWNER_EMAIL,hash])}
 })();}
 
 export const users={
