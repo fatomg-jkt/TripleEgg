@@ -1,4 +1,5 @@
-import type {FinancialTransaction} from './schema';
+import type {DashboardFilters,FinancialTransaction} from './schema';
+import {applyFilters} from './financial-store';
 
 export const transactionBalance=(row:FinancialTransaction)=>['liability','equity','revenue','payable'].includes(row.account_type)?row.credit-row.debit:row.debit-row.credit;
 export const transactionTotal=(rows:FinancialTransaction[])=>rows.reduce((sum,row)=>sum+transactionBalance(row),0);
@@ -49,3 +50,8 @@ export function calculateDashboard(rows:FinancialTransaction[]){
   const monthly=Array.from({length:12},(_,index)=>{const month=index+1,selected=incomeSource.filter(row=>row.month===month),income=selected.filter(row=>row.account_type==='revenue').reduce((total,row)=>total+transactionBalance(row),0),expenseValue=selected.filter(row=>row.account_type==='expense').reduce((total,row)=>total+transactionBalance(row),0);return {month,income,expense:expenseValue,profit:income-expenseValue}}).filter(row=>row.income||row.expense);
   return {kpis,monthly,hasData:rows.length>0};
 }
+
+export type ReportMonth={month:number;year:number};
+export const monthIndex=({month,year}:ReportMonth)=>year*12+month-1;
+export function customThreeMonthRange(start:ReportMonth,end:ReportMonth){return monthIndex(end)-monthIndex(start)===2?[0,1,2].map(offset=>{const index=monthIndex(start)+offset;return {month:index%12+1,year:Math.floor(index/12)}}):null}
+export function calculateLabaRugiPeriods(rows:FinancialTransaction[],filters:DashboardFilters,months:ReportMonth[]){return months.map(period=>calculateLabaRugi(applyFilters(rows,{...filters,period:'all',month:String(period.month),year:String(period.year)}).filter(row=>row.statement_type==='income-statement')))}
