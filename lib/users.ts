@@ -38,6 +38,10 @@ export function ensureUserSchema(){return ready??=(async()=>{
     await db.query(`INSERT INTO users(id,name,email,password_hash,role,company,department,cost_center,status,require_password_change) VALUES($1,'Raisa Admin',$2,$3,'Super Admin','All','All','All','Active',false) ON CONFLICT(email) DO NOTHING`,[randomUUID(),ADMIN_EMAIL,hash]);
   }
   await db.query(`INSERT INTO user_restaurants(user_id,restaurant_id) SELECT id,'00000000-0000-0000-0000-000000000001'::uuid FROM users u WHERE NOT EXISTS(SELECT 1 FROM user_restaurants ur WHERE ur.user_id=u.id) ON CONFLICT DO NOTHING`);
+  await db.query(`INSERT INTO user_restaurants(user_id,restaurant_id)
+    SELECT u.id,r.id FROM users u CROSS JOIN restaurants r
+    WHERE u.role IN ('Owner','Super Admin') AND r.slug IN ('triple-egg','wok-this-way')
+    ON CONFLICT DO NOTHING`);
 })();}
 
 export const users={
