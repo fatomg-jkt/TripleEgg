@@ -14,8 +14,8 @@ const publicSans = Public_Sans({
 });
 
 export const metadata = {
-  title: 'Financial & Accounting Triple Egg',
-  description: 'Professional accounting dashboard',
+  title: 'Restaurant Financial & Accounting Dashboard',
+  description: 'Financial & Accounting Dashboard untuk Triple Egg dan Wok This Way',
 };
 
 export default function Layout({ children }: { children: React.ReactNode }) {

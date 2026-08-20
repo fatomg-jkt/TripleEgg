@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 320" role="img" aria-labelledby="title desc">
+  <title id="title">Wok This Way</title>
+  <desc id="desc">Circular red Wok This Way logo on a transparent background</desc>
+  <g fill="none" stroke="#ef4444" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="160" cy="160" r="145" stroke-width="8"/>
+    <circle cx="160" cy="160" r="133" stroke-width="3"/>
+    <path d="M123 78c-11-16 9-23 0-38" stroke-width="9"/>
+    <path d="M160 74c-12-17 10-25 0-43" stroke-width="9"/>
+    <path d="M197 78c-11-16 9-23 0-38" stroke-width="9"/>
+    <path d="M76 206h54M190 206h54" stroke-width="5"/>
+  </g>
+  <g fill="#ef4444" font-family="Arial Black, Arial, Helvetica, sans-serif" font-weight="900" text-anchor="middle">
+    <text x="160" y="174" font-size="82" letter-spacing="-5">WOK</text>
+    <text x="160" y="218" font-size="34" letter-spacing="2">THIS</text>
+    <text x="160" y="272" font-size="64" letter-spacing="1">WAY</text>
+  </g>
+  <g transform="translate(160 142)" fill="none" stroke="#ef4444" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M-24 8c7 21 41 21 48 0z" stroke-width="5"/>
+    <path d="M-2 -5c-5-8 5-12 0-20M12 -7c-4-7 5-10 1-17" stroke-width="4"/>
+    <path d="M18 3l17-16" stroke-width="4"/>
+  </g>
+</svg>
