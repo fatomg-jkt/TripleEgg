@@ -2,10 +2,11 @@
 import {useMemo} from 'react';
 import {applyFilters,useFinancial} from '@/lib/financial-store';
 import type {FinancialTransaction} from '@/lib/schema';
+import {calculateCashFlow,calculateLabaRugi,calculateNeraca,transactionBalance,transactionTotal} from '@/lib/financial-report-data';
 
 const money=(n:number)=>new Intl.NumberFormat('id-ID',{style:'currency',currency:'IDR',maximumFractionDigits:0}).format(n);
-const balance=(r:FinancialTransaction)=>['liability','equity','revenue','payable'].includes(r.account_type)?r.credit-r.debit:r.debit-r.credit;
-const total=(rows:FinancialTransaction[])=>rows.reduce((n,r)=>n+balance(r),0);
+const balance=transactionBalance;
+const total=transactionTotal;
 const clean=(s:string)=>s?.trim()||'Lain-lain';
 const sortRows=(rows:FinancialTransaction[])=>[...rows].sort((a,b)=>(a.account_code||'').localeCompare(b.account_code||'',undefined,{numeric:true}));
 
@@ -25,15 +26,14 @@ function StatementSection({title,rows,totalLabel=title,emptyText='Belum ada akun
 export function NeracaReport(){
   const {transactions,filters}=useFinancial();
   const rows=useMemo(()=>applyFilters(transactions,filters).filter(r=>r.statement_type==='balance-sheet'),[transactions,filters]);
-  const assets=rows.filter(r=>['asset','cash','receivable','inventory'].includes(r.account_type));
-  const liabilities=rows.filter(r=>['liability','payable'].includes(r.account_type));
-  const equity=rows.filter(r=>r.account_type==='equity');
+  const statement=calculateNeraca(rows);
+  const {assets,liabilities,equity}=statement;
   const cash=rows.filter(r=>r.account_type==='cash');
   const receivable=rows.filter(r=>r.account_type==='receivable');
   const inventory=rows.filter(r=>r.account_type==='inventory');
   const payable=rows.filter(r=>r.account_type==='payable');
-  const aset=total(assets),liab=total(liabilities),eq=total(equity),pasiva=liab+eq,difference=aset-pasiva;
-  const balanced=Math.abs(difference)<1;
+  const aset=statement.totalAssets,liab=statement.totalLiabilities,eq=statement.totalEquity,pasiva=statement.liabilitiesAndEquity,difference=statement.difference;
+  const balanced=statement.balanced;
   const hasData=rows.length>0;
   return <div className="space-y-5">
     {!hasData&&<NoDataNotice report="Neraca"/>}
@@ -46,14 +46,10 @@ export function NeracaReport(){
 export function LabaRugiReport(){
   const {transactions,filters}=useFinancial();
   const rows=useMemo(()=>applyFilters(transactions,filters).filter(r=>r.statement_type==='income-statement'),[transactions,filters]);
-  const revenue=rows.filter(r=>r.account_type==='revenue');
-  const expenses=rows.filter(r=>r.account_type==='expense');
-  const hpp=expenses.filter(r=>/hpp|harga pokok|cost of goods|cogs/i.test(`${r.report_category} ${r.account_name}`));
-  const otherExpenses=expenses.filter(r=>!hpp.includes(r));
-  const operating=otherExpenses.filter(r=>/operasional|operating|gaji|salary|sewa|rent|utilit|listrik|marketing|administrasi|admin/i.test(`${r.report_category} ${r.account_name}`));
-  const nonOperating=otherExpenses.filter(r=>!operating.includes(r));
-  const pendapatan=total(revenue),totalHpp=total(hpp),gross=pendapatan-totalHpp,operatingExpense=total(operating),otherExpense=total(nonOperating),totalExpense=operatingExpense+otherExpense,net=gross-totalExpense;
-  const grossMargin=pendapatan?gross/pendapatan*100:0,netMargin=pendapatan?net/pendapatan*100:0;
+  const statement=calculateLabaRugi(rows);
+  const {revenue,hpp,operating,nonOperating}=statement;
+  const pendapatan=statement.totalRevenue,totalHpp=statement.totalHpp,gross=statement.grossProfit,operatingExpense=statement.operatingExpense,otherExpense=statement.otherExpense,totalExpense=statement.totalExpense,net=statement.netProfit;
+  const grossMargin=statement.grossMargin,netMargin=statement.netMargin;
   const hasData=rows.length>0;
   return <div className="space-y-5">
     {!hasData&&<NoDataNotice report="Laba Rugi"/>}
@@ -66,12 +62,9 @@ export function LabaRugiReport(){
 export function CashFlowReport(){
   const {transactions,filters}=useFinancial();
   const rows=useMemo(()=>applyFilters(transactions,filters).filter(r=>r.statement_type==='cash-flow'),[transactions,filters]);
-  const category=(r:FinancialTransaction)=>`${r.report_category||r.description}`.toLowerCase();
-  const operating=rows.filter(r=>/operasi|operating|operasional/.test(category(r)));
-  const investing=rows.filter(r=>/investasi|investing/.test(category(r)));
-  const financing=rows.filter(r=>/pendanaan|financing/.test(category(r)));
-  const unclassified=rows.filter(r=>!operating.includes(r)&&!investing.includes(r)&&!financing.includes(r));
-  const op=total(operating),inv=total(investing),fin=total(financing),other=total(unclassified),net=op+inv+fin+other;
+  const statement=calculateCashFlow(rows);
+  const {operating,investing,financing}=statement,unclassified=statement.other;
+  const op=statement.operatingTotal,inv=statement.investingTotal,fin=statement.financingTotal,other=statement.otherTotal,net=statement.netChange;
   const hasData=rows.length>0;
   return <div className="space-y-5">
     {!hasData&&<NoDataNotice report="Arus Kas"/>}
