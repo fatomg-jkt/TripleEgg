@@ -1,6 +1,8 @@
 import {ClientShell} from '../client-shell';
 import {ModulePage} from '@/components/page';
 import {pageMeta} from '@/lib/data';
+import {BankStatements} from '@/components/bank-statements';
+import {ProfitabilityDashboard,RatioDashboard,TrendDashboard} from '@/components/analytics';
 
 const routeMeta:Record<string,[string,string,string]>={
   'budgeting/ringkasan':['Ringkasan Budget','Pantau alokasi dan realisasi anggaran','ringkasan-budget'],
@@ -16,5 +18,9 @@ export default function Page({params}:{params:{slug:string[]}}){
   const budget=routeMeta[route];
   const [title,subtitle]=budget?.slice(0,2) as [string,string]||pageMeta[last]||[last.replaceAll('-',' ').replace(/\b\w/g,c=>c.toUpperCase()),'Kelola data keuangan perusahaan secara terintegrasi'];
   const moduleSlug=budget?.[2]||last;
+  if(route==='documents/bank-statement') return <ClientShell><BankStatements/></ClientShell>;
+  if(route==='analisa/rasio') return <ClientShell><RatioDashboard/></ClientShell>;
+  if(route==='analisa/trend') return <ClientShell><TrendDashboard/></ClientShell>;
+  if(route==='analisa/profitabilitas') return <ClientShell><ProfitabilityDashboard/></ClientShell>;
   return <ClientShell><ModulePage title={title} subtitle={subtitle} slug={moduleSlug}/></ClientShell>;
 }
