@@ -8,6 +8,8 @@ export const restaurants:Restaurant[]=[
  {id:'00000000-0000-0000-0000-000000000001',slug:'triple-egg',name:'Triple Egg'},
  {id:'00000000-0000-0000-0000-000000000002',slug:'wok-this-way',name:'Wok This Way'},
 ];
+export type BankStatementStatus='Uploaded'|'Processing'|'Ready'|'Failed';
+export interface BankStatementDocument{id:string;restaurant_id:string;bank_name:string;account_number:string;account_name:string;period:string;month:number;year:number;file_name:string;original_file_name:string;file_type:'xlsx'|'xls'|'csv'|'pdf';file_size:number;status:BankStatementStatus;notes?:string;uploaded_by:string;uploaded_at:string;data_url?:string}
 export const rolePermissions:Record<Role,PermissionAction[]>={Owner:['view','upload','edit','delete','export','approve'],'Super Admin':['view','upload','edit','delete','export','approve'],'Finance Manager':['view','upload','approve','export'],Accounting:['view','upload','edit'],Staff:['view','upload'],Viewer:['view']};
 export interface UploadedFile{id:string;restaurant_id?:string;file_name:string;original_file_name:string;file_type:'xlsx'|'xls'|'csv'|'pdf';file_size:number;module:string;company_id:string;department_id?:string;cost_center_id?:string;period:string;year:number;status:'Uploading'|'Processing'|'Success'|'Failed';uploaded_by:string;uploaded_at:string;processed_at?:string;error_message?:string}
 export type AccountType='asset'|'liability'|'equity'|'revenue'|'expense'|'cash'|'receivable'|'inventory'|'payable';
