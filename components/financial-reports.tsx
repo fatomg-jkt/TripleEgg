@@ -1,11 +1,13 @@
 'use client';
-import {useMemo} from 'react';
-import {applyFilters,useFinancial} from '@/lib/financial-store';
-import type {FinancialTransaction} from '@/lib/schema';
+import {useMemo,useState} from 'react';
+import {applyFilters,monthNames,useFinancial} from '@/lib/financial-store';
+import type {DashboardFilters,FinancialTransaction} from '@/lib/schema';
+import {RefreshCw} from 'lucide-react';
+import {calculateCashFlow,calculateLabaRugi,calculateLabaRugiPeriods,calculateNeraca,customThreeMonthRange,transactionBalance,transactionTotal,type ReportMonth} from '@/lib/financial-report-data';
 
 const money=(n:number)=>new Intl.NumberFormat('id-ID',{style:'currency',currency:'IDR',maximumFractionDigits:0}).format(n);
-const balance=(r:FinancialTransaction)=>['liability','equity','revenue','payable'].includes(r.account_type)?r.credit-r.debit:r.debit-r.credit;
-const total=(rows:FinancialTransaction[])=>rows.reduce((n,r)=>n+balance(r),0);
+const balance=transactionBalance;
+const total=transactionTotal;
 const clean=(s:string)=>s?.trim()||'Lain-lain';
 const sortRows=(rows:FinancialTransaction[])=>[...rows].sort((a,b)=>(a.account_code||'').localeCompare(b.account_code||'',undefined,{numeric:true}));
 
@@ -25,15 +27,14 @@ function StatementSection({title,rows,totalLabel=title,emptyText='Belum ada akun
 export function NeracaReport(){
   const {transactions,filters}=useFinancial();
   const rows=useMemo(()=>applyFilters(transactions,filters).filter(r=>r.statement_type==='balance-sheet'),[transactions,filters]);
-  const assets=rows.filter(r=>['asset','cash','receivable','inventory'].includes(r.account_type));
-  const liabilities=rows.filter(r=>['liability','payable'].includes(r.account_type));
-  const equity=rows.filter(r=>r.account_type==='equity');
+  const statement=calculateNeraca(rows);
+  const {assets,liabilities,equity}=statement;
   const cash=rows.filter(r=>r.account_type==='cash');
   const receivable=rows.filter(r=>r.account_type==='receivable');
   const inventory=rows.filter(r=>r.account_type==='inventory');
   const payable=rows.filter(r=>r.account_type==='payable');
-  const aset=total(assets),liab=total(liabilities),eq=total(equity),pasiva=liab+eq,difference=aset-pasiva;
-  const balanced=Math.abs(difference)<1;
+  const aset=statement.totalAssets,liab=statement.totalLiabilities,eq=statement.totalEquity,pasiva=statement.liabilitiesAndEquity,difference=statement.difference;
+  const balanced=statement.balanced;
   const hasData=rows.length>0;
   return <div className="space-y-5">
     {!hasData&&<NoDataNotice report="Neraca"/>}
@@ -43,35 +44,31 @@ export function NeracaReport(){
   </div>;
 }
 
-export function LabaRugiReport(){
-  const {transactions,filters}=useFinancial();
-  const rows=useMemo(()=>applyFilters(transactions,filters).filter(r=>r.statement_type==='income-statement'),[transactions,filters]);
-  const revenue=rows.filter(r=>r.account_type==='revenue');
-  const expenses=rows.filter(r=>r.account_type==='expense');
-  const hpp=expenses.filter(r=>/hpp|harga pokok|cost of goods|cogs/i.test(`${r.report_category} ${r.account_name}`));
-  const otherExpenses=expenses.filter(r=>!hpp.includes(r));
-  const operating=otherExpenses.filter(r=>/operasional|operating|gaji|salary|sewa|rent|utilit|listrik|marketing|administrasi|admin/i.test(`${r.report_category} ${r.account_name}`));
-  const nonOperating=otherExpenses.filter(r=>!operating.includes(r));
-  const pendapatan=total(revenue),totalHpp=total(hpp),gross=pendapatan-totalHpp,operatingExpense=total(operating),otherExpense=total(nonOperating),totalExpense=operatingExpense+otherExpense,net=gross-totalExpense;
-  const grossMargin=pendapatan?gross/pendapatan*100:0,netMargin=pendapatan?net/pendapatan*100:0;
-  const hasData=rows.length>0;
-  return <div className="space-y-5">
-    {!hasData&&<NoDataNotice report="Laba Rugi"/>}
-    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5"><Summary label="Pendapatan" value={pendapatan}/><Summary label="HPP" value={totalHpp}/><Summary label="Laba Kotor" value={gross}/><Summary label="Total Beban" value={totalExpense}/><Summary label="Laba Bersih" value={net}/></div>
-    <div className="grid gap-3 sm:grid-cols-2"><MiniMetric label="Gross Margin" value={grossMargin} percentage/><MiniMetric label="Net Profit Margin" value={netMargin} percentage/></div>
-    <div className="mx-auto max-w-6xl overflow-hidden rounded-xl border border-[#203047] bg-[#0a1522]"><div className="border-b border-[#203047] bg-[#101e30] px-5 py-4"><h2 className="text-base font-bold">Laporan Laba Rugi</h2><p className="mt-1 text-xs text-slate-500">Pendapatan dikurangi HPP dan seluruh beban untuk menghasilkan laba bersih.</p></div><IncomeSection label="PENDAPATAN" rows={revenue} subtotal="TOTAL PENDAPATAN" emptyText="Belum ada akun Pendapatan yang diupload."/><IncomeSection label="HARGA POKOK PENJUALAN (HPP)" rows={hpp} subtotal="TOTAL HPP" emptyText="Belum ada akun HPP yang diupload."/><HighlightLine label="LABA KOTOR" value={gross}/><IncomeSection label="BEBAN OPERASIONAL" rows={operating} subtotal="TOTAL BEBAN OPERASIONAL" emptyText="Belum ada akun Beban Operasional yang diupload."/><IncomeSection label="BEBAN LAIN-LAIN" rows={nonOperating} subtotal="TOTAL BEBAN LAIN-LAIN" emptyText="Belum ada akun Beban Lain-lain yang diupload."/><ReportLine label="TOTAL BEBAN" value={totalExpense} strong/><HighlightLine label="LABA BERSIH" value={net} primary/></div>
-  </div>;
+export type LabaRugiPeriodSelection={mode:'quarterly'|'custom';months:ReportMonth[];label:string;totalLabel:string};
+export function LabaRugiReport({onPeriodChange}:{onPeriodChange?:(value:LabaRugiPeriodSelection|null)=>void}={}){
+  const {transactions,filters}=useFinancial(),availableYears=Array.from(new Set(transactions.map(row=>row.year))).sort((a,b)=>b-a),initialYear=filters.year==='all'?(availableYears[0]||new Date().getFullYear()):Number(filters.year),initialMonth=filters.month==='all'?1:Number(filters.month);
+  const [draftMode,setDraftMode]=useState<'single'|'quarterly'|'custom'>('single'),[year,setYear]=useState(initialYear),[quarter,setQuarter]=useState<1|2|3|4>(Math.ceil(initialMonth/3) as 1|2|3|4),[start,setStart]=useState<ReportMonth>({month:initialMonth,year:initialYear}),[end,setEnd]=useState<ReportMonth>({month:(initialMonth+1)%12+1,year:initialYear+Math.floor((initialMonth+1)/12)}),[applied,setApplied]=useState<LabaRugiPeriodSelection|null>(null),[refreshing,setRefreshing]=useState(false),[feedback,setFeedback]=useState('');
+  const rows=useMemo(()=>applyFilters(transactions,filters).filter(row=>row.statement_type==='income-statement'),[transactions,filters]),statement=calculateLabaRugi(rows),{revenue,hpp,operating,nonOperating}=statement;
+  const apply=()=>{if(refreshing)return;setRefreshing(true);setFeedback('');setTimeout(()=>{if(draftMode==='single'){setApplied(null);onPeriodChange?.(null);setFeedback('Data diperbarui.')}else if(draftMode==='quarterly'){const months=[0,1,2].map(offset=>({month:(quarter-1)*3+offset+1,year})),value={mode:'quarterly' as const,months,label:`Q${quarter} ${year}`,totalLabel:`TOTAL Q${quarter}`};setApplied(value);onPeriodChange?.(value);setFeedback('Data diperbarui.')}else{const months=customThreeMonthRange(start,end);if(!months)setFeedback('Periode Custom harus terdiri dari 3 bulan berturut-turut.');else{const label=`${monthNames[start.month-1]} ${start.year} - ${monthNames[end.month-1]} ${end.year}`,value={mode:'custom' as const,months,label,totalLabel:'TOTAL PERIODE'};setApplied(value);onPeriodChange?.(value);setFeedback('Data diperbarui.')}}setRefreshing(false)},0)};
+  const years=Array.from(new Set([...availableYears,initialYear-1,initialYear,initialYear+1,start.year-1,start.year,start.year+1,end.year])).sort((a,b)=>b-a);
+  const periodFields=(label:string,value:ReportMonth,setter:(value:ReportMonth)=>void)=><div><span className="label">{label}</span><div className="mt-1 flex gap-2"><select className="field" value={value.month} onChange={event=>setter({...value,month:Number(event.target.value)})}>{monthNames.map((name,index)=><option value={index+1} key={name}>{name}</option>)}</select><select className="field" value={value.year} onChange={event=>setter({...value,year:Number(event.target.value)})}>{years.map(item=><option key={item}>{item}</option>)}</select></div></div>;
+  const controls=<div className="no-print card flex flex-wrap items-end gap-3 p-4"><label><span className="label">Mode Laporan</span><select className="field mt-1 block" value={draftMode} onChange={event=>setDraftMode(event.target.value as typeof draftMode)}><option value="single">Periode Tunggal</option><option value="quarterly">Quarterly</option><option value="custom">Custom 3 Bulan</option></select></label>{draftMode==='quarterly'&&<><label><span className="label">Tahun</span><select className="field mt-1 block" value={year} onChange={event=>setYear(Number(event.target.value))}>{years.map(value=><option key={value}>{value}</option>)}</select></label><label><span className="label">Quarter</span><select className="field mt-1 block" value={quarter} onChange={event=>setQuarter(Number(event.target.value) as 1|2|3|4)}>{[1,2,3,4].map(value=><option key={value} value={value}>Q{value}</option>)}</select></label></>}{draftMode==='custom'&&<>{periodFields('Periode Awal',start,setStart)}{periodFields('Periode Akhir',end,setEnd)}</>}<button className="btn" disabled={refreshing} onClick={apply}><RefreshCw size={14} className={refreshing?'animate-spin':''}/>{refreshing?'Refreshing...':'Refresh'}</button>{feedback&&<span className={feedback.startsWith('Periode')?'text-xs text-red-400':'text-xs text-emerald-400'}>{feedback}</span>}{draftMode!=='single'&&<span className="w-full text-[10px] text-blue-300">Setelah Refresh, Periode, Bulan, dan Tahun global diabaikan dalam mode multi-periode; Company, Department, dan Cost Center tetap berlaku.</span>}</div>;
+  if(applied)return <><div className="print-quarter-title">{applied.label}</div>{controls}<MultiPeriodLabaRugi transactions={transactions} filters={filters} selection={applied}/></>;
+  const pendapatan=statement.totalRevenue,totalHpp=statement.totalHpp,gross=statement.grossProfit,totalExpense=statement.totalExpense,net=statement.netProfit,hasData=rows.length>0;
+  return <div className="space-y-5">{controls}{!hasData&&<NoDataNotice report="Laba Rugi"/>}<div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5"><Summary label="Pendapatan" value={pendapatan}/><Summary label="HPP" value={totalHpp}/><Summary label="Laba Kotor" value={gross}/><Summary label="Total Beban" value={totalExpense}/><Summary label="Laba Bersih" value={net}/></div><div className="grid gap-3 sm:grid-cols-2"><MiniMetric label="Gross Margin" value={statement.grossMargin} percentage/><MiniMetric label="Net Profit Margin" value={statement.netMargin} percentage/></div><div className="mx-auto max-w-6xl overflow-hidden rounded-xl border border-[#203047] bg-[#0a1522]"><div className="border-b border-[#203047] bg-[#101e30] px-5 py-4"><h2 className="text-base font-bold">Laporan Laba Rugi</h2><p className="mt-1 text-xs text-slate-500">Pendapatan dikurangi HPP dan seluruh beban untuk menghasilkan laba bersih.</p></div><IncomeSection label="PENDAPATAN" rows={revenue} subtotal="TOTAL PENDAPATAN" emptyText="Belum ada akun Pendapatan yang diupload."/><IncomeSection label="HARGA POKOK PENJUALAN (HPP)" rows={hpp} subtotal="TOTAL HPP" emptyText="Belum ada akun HPP yang diupload."/><HighlightLine label="LABA KOTOR" value={gross}/><IncomeSection label="BEBAN OPERASIONAL" rows={operating} subtotal="TOTAL BEBAN OPERASIONAL" emptyText="Belum ada akun Beban Operasional yang diupload."/><IncomeSection label="BEBAN LAIN-LAIN" rows={nonOperating} subtotal="TOTAL BEBAN LAIN-LAIN" emptyText="Belum ada akun Beban Lain-lain yang diupload."/><ReportLine label="TOTAL BEBAN" value={totalExpense} strong/><HighlightLine label="LABA BERSIH" value={net} primary/></div></div>;
 }
+
+type QuarterMetric={code:string;name:string;values:[number,number,number]};
+function quarterAccounts(sources:FinancialTransaction[][]):QuarterMetric[]{const map=new Map<string,QuarterMetric>();sources.forEach((source,index)=>source.forEach(row=>{const key=`${row.account_code}|${row.account_name}`,item=map.get(key)||{code:row.account_code,name:row.account_name,values:[0,0,0]};item.values[index]+=balance(row);map.set(key,item)}));return Array.from(map.values()).sort((a,b)=>a.code.localeCompare(b.code,undefined,{numeric:true}))}
+function QuarterSection({label,accounts,totals,totalLabel}:{label:string;accounts:QuarterMetric[];totals:number[];totalLabel:string}){return <><tr className="bg-[#101e30]"><th colSpan={5} className="text-sm font-bold text-slate-100">{label}</th></tr>{accounts.length?accounts.map(account=><tr key={`${account.code}|${account.name}`}><td><span className="font-mono text-slate-500">{account.code}</span><span className="ml-3 text-slate-200">{account.name}</span></td>{account.values.map((value,index)=><td key={index} className="text-right tabular-nums">{money(value)}</td>)}<td className="text-right font-semibold tabular-nums">{money(account.values.reduce((sum,value)=>sum+value,0))}</td></tr>):<tr><td colSpan={5} className="text-slate-500">Belum ada data pada bagian ini.</td></tr>}<tr className="bg-[#111f31] font-bold"><td>{totalLabel}</td>{totals.map((value,index)=><td key={index} className="text-right tabular-nums">{money(value)}</td>)}<td className="text-right tabular-nums">{money(totals.reduce((sum,value)=>sum+value,0))}</td></tr></>}
+function MultiPeriodLabaRugi({transactions,filters,selection}:{transactions:FinancialTransaction[];filters:DashboardFilters;selection:LabaRugiPeriodSelection}){const statements=calculateLabaRugiPeriods(transactions,filters,selection.months),values=(key:'grossProfit'|'totalExpense'|'netProfit')=>statements.map(statement=>statement[key]),totalRevenue=statements.reduce((sum,item)=>sum+item.totalRevenue,0),gross=statements.reduce((sum,item)=>sum+item.grossProfit,0),net=statements.reduce((sum,item)=>sum+item.netProfit,0),margin=(value:number)=>totalRevenue?value/totalRevenue*100:0;const highlight=(label:string,totals:number[],primary=false)=><tr className={`${primary?'bg-blue-500/15':'bg-emerald-500/10'} font-bold`}><td>{label}</td>{totals.map((value,index)=><td key={index} className="text-right tabular-nums">{money(value)}</td>)}<td className="text-right tabular-nums">{money(totals.reduce((sum,value)=>sum+value,0))}</td></tr>;return <div className="space-y-4"><div className="text-center"><h2 className="text-lg font-bold">LAPORAN LABA RUGI</h2><p className="text-xs text-slate-400">{selection.label}</p></div><div className="card overflow-x-auto"><table className="quarter-table"><thead><tr><th>Akun</th>{selection.months.map(period=><th className="text-right" key={`${period.year}-${period.month}`}>{monthNames[period.month-1].slice(0,3).toUpperCase()} {period.year}</th>)}<th className="text-right">{selection.totalLabel}</th></tr></thead><tbody><QuarterSection label="PENDAPATAN" accounts={quarterAccounts(statements.map(item=>item.revenue))} totals={statements.map(item=>item.totalRevenue)} totalLabel="TOTAL PENDAPATAN"/><QuarterSection label="HARGA POKOK PENJUALAN (HPP)" accounts={quarterAccounts(statements.map(item=>item.hpp))} totals={statements.map(item=>item.totalHpp)} totalLabel="TOTAL HPP"/>{highlight('LABA KOTOR',values('grossProfit'))}<QuarterSection label="BEBAN OPERASIONAL" accounts={quarterAccounts(statements.map(item=>item.operating))} totals={statements.map(item=>item.operatingExpense)} totalLabel="TOTAL BEBAN OPERASIONAL"/><QuarterSection label="BEBAN LAIN-LAIN" accounts={quarterAccounts(statements.map(item=>item.nonOperating))} totals={statements.map(item=>item.otherExpense)} totalLabel="TOTAL BEBAN LAIN-LAIN"/>{highlight('TOTAL BEBAN',values('totalExpense'))}{highlight('LABA BERSIH',values('netProfit'),true)}<tr><td>Gross Margin</td><td colSpan={3}/><td className="text-right font-semibold">{margin(gross).toFixed(1)}%</td></tr><tr><td>Net Profit Margin</td><td colSpan={3}/><td className="text-right font-semibold">{margin(net).toFixed(1)}%</td></tr></tbody></table></div></div>}
 
 export function CashFlowReport(){
   const {transactions,filters}=useFinancial();
   const rows=useMemo(()=>applyFilters(transactions,filters).filter(r=>r.statement_type==='cash-flow'),[transactions,filters]);
-  const category=(r:FinancialTransaction)=>`${r.report_category||r.description}`.toLowerCase();
-  const operating=rows.filter(r=>/operasi|operating|operasional/.test(category(r)));
-  const investing=rows.filter(r=>/investasi|investing/.test(category(r)));
-  const financing=rows.filter(r=>/pendanaan|financing/.test(category(r)));
-  const unclassified=rows.filter(r=>!operating.includes(r)&&!investing.includes(r)&&!financing.includes(r));
-  const op=total(operating),inv=total(investing),fin=total(financing),other=total(unclassified),net=op+inv+fin+other;
+  const statement=calculateCashFlow(rows);
+  const {operating,investing,financing}=statement,unclassified=statement.other;
+  const op=statement.operatingTotal,inv=statement.investingTotal,fin=statement.financingTotal,other=statement.otherTotal,net=statement.netChange;
   const hasData=rows.length>0;
   return <div className="space-y-5">
     {!hasData&&<NoDataNotice report="Arus Kas"/>}
