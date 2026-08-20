@@ -1,13 +1,16 @@
 'use client';
 
-import {useState} from 'react';
+import {useMemo,useState} from 'react';
 import {Download,FileDown,Plus,Printer,Upload} from 'lucide-react';
 import {UploadModal} from './upload';
 import {DataTable,UploadHistory} from './data-table';
 import {FilterBar} from './dashboard';
 import {CashFlowReport,LabaRugiReport,NeracaReport} from './financial-reports';
 import {BudgetReport} from './budget-reports';
-import {PermissionGate} from '@/lib/rbac-client';
+import {PermissionGate,useRbac} from '@/lib/rbac-client';
+import {applyFilters,useFinancial} from '@/lib/financial-store';
+import {downloadExcel,excelFilename,type ExcelColumn} from '@/lib/excel-export';
+import type {FinancialTransaction} from '@/lib/schema';
 
 const templateColumns:Record<string,string[]>={
   dashboard:['Kode Akun','Nama Akun','Kategori','Saldo'],
@@ -44,8 +47,17 @@ function downloadTemplate(title:string,slug='dashboard'){
   const blob=new Blob(['\ufeff',csv],{type:'text/csv;charset=utf-8;'});const url=URL.createObjectURL(blob);const link=document.createElement('a');link.href=url;link.download=`template-${slug||title.toLowerCase().replaceAll(' ','-')}.csv`;document.body.appendChild(link);link.click();link.remove();URL.revokeObjectURL(url);
 }
 
+const moneyFormat='[$Rp-421] #,##0;[Red]-[$Rp-421] #,##0';
+const transactionColumns:ExcelColumn[]=[{header:'Tanggal',key:'transaction_date',width:14,format:'yyyy-mm-dd'},{header:'Kode Akun',key:'account_code'},{header:'Nama Akun',key:'account_name',width:28},{header:'Kategori',key:'report_category',width:22},{header:'Debit',key:'debit',format:moneyFormat},{header:'Credit',key:'credit',format:moneyFormat},{header:'Saldo',key:'balance',format:moneyFormat},{header:'Company',key:'company_id'},{header:'Department',key:'department_id'},{header:'Cost Center',key:'cost_center_id'},{header:'Periode',key:'period'}];
+const budgetColumns:ExcelColumn[]=[{header:'Periode',key:'period'},{header:'Bulan',key:'month'},{header:'Tahun',key:'year'},{header:'Company',key:'company_id'},{header:'Department',key:'department_id'},{header:'Cost Center',key:'cost_center_id'},{header:'Kode Akun',key:'account_code'},{header:'Nama Akun',key:'account_name',width:28},{header:'Kategori',key:'category'},{header:'Budget',key:'budget',format:moneyFormat},{header:'Actual',key:'actual',format:moneyFormat},{header:'Variance',key:'variance',format:moneyFormat}];
+const inScope=<T extends {company_id:string;department_id:string;cost_center_id:string}>(rows:T[],user:{company?:string;department?:string;costCenter?:string}|null)=>rows.filter(row=>(!user?.company||user.company==='All'||row.company_id===user.company)&&(!user?.department||user.department==='All'||row.department_id===user.department)&&(!user?.costCenter||user.costCenter==='All'||row.cost_center_id===user.costCenter));
+const signed=(row:FinancialTransaction)=>['liability','equity','revenue','payable'].includes(row.account_type)?row.credit-row.debit:row.debit-row.credit;
+
 export function PageHeader({title,subtitle,onUpload,slug='dashboard',extra}:{title:string;subtitle:string;onUpload:()=>void;slug?:string;extra?:React.ReactNode}){
-  return <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-center"><div><div className="label mb-2 text-blue-500">Finance / Overview</div><h1 className="text-2xl font-bold tracking-tight">{title}</h1><p className="mt-1 text-xs text-slate-500">{subtitle}</p></div><div className="flex flex-wrap gap-2">{extra}<PermissionGate resource={slug} action="upload"><button onClick={onUpload} className="btn btn-primary"><Upload size={14}/> Upload File</button></PermissionGate><PermissionGate resource={slug} action="export"><button onClick={()=>downloadTemplate(title,slug)} className="btn" type="button"><FileDown size={14}/> Download Template</button><button className="btn"><Download size={14}/> Export Excel</button></PermissionGate><button className="btn desktop-only"><Printer size={14}/> Print</button></div></div>;
+  const {transactions,budgets,filters}=useFinancial();const {user,can}=useRbac();const [exporting,setExporting]=useState(false);const [message,setMessage]=useState('');
+  const exportRows=useMemo(()=>{const scopedTransactions=inScope(applyFilters(transactions,filters),user);if(slug.includes('budget')){const scopedBudgets=inScope(applyFilters(budgets,filters),user);return scopedBudgets.map(row=>{const actual=scopedTransactions.filter(tx=>tx.account_code===row.account_code&&(row.department_id==='Semua Department'||tx.department_id===row.department_id)&&(row.cost_center_id==='Semua Cost Center'||tx.cost_center_id===row.cost_center_id)).reduce((sum,tx)=>sum+signed(tx),0);return {...row,actual,variance:row.budget-actual}})}const statement=slug==='neraca'?'balance-sheet':slug==='laba-rugi'?'income-statement':slug==='arus-kas'?'cash-flow':null;return scopedTransactions.filter(row=>!statement||row.statement_type===statement).map(row=>({...row,transaction_date:row.transaction_date?new Date(`${row.transaction_date}T00:00:00`):'',report_category:row.report_category||row.description,balance:signed(row)}))},[transactions,budgets,filters,user,slug]);
+  const runExport=()=>{if(exporting||!can(slug,'export'))return;if(!exportRows.length){setMessage('Tidak ada data untuk diekspor.');return}setExporting(true);setMessage('');try{const isBudget=slug.includes('budget');downloadExcel(isBudget?budgetColumns:transactionColumns,exportRows,excelFilename(title,filters.period,filters.company_id),title)}finally{setExporting(false)}};
+  return <><div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-center"><div><div className="label mb-2 text-blue-500">Finance / Overview</div><h1 className="text-2xl font-bold tracking-tight">{title}</h1><p className="mt-1 text-xs text-slate-500">{subtitle}</p></div><div className="flex flex-wrap gap-2">{extra}<PermissionGate resource={slug} action="upload"><button onClick={onUpload} className="btn btn-primary"><Upload size={14}/> Upload File</button></PermissionGate><PermissionGate resource={slug} action="export"><button onClick={()=>downloadTemplate(title,slug)} className="btn" type="button"><FileDown size={14}/> Download Template</button><button onClick={runExport} disabled={exporting} className="btn" type="button"><Download size={14}/> {exporting?'Exporting...':'Export Excel'}</button></PermissionGate><button className="btn desktop-only"><Printer size={14}/> Print</button></div></div>{message&&<p role="status" className="mt-3 rounded-lg border border-amber-500/20 bg-amber-500/5 px-4 py-2 text-xs text-amber-300">{message}</p>}</>;
 }
 
 export function ModulePage({title,subtitle,slug}:{title:string;subtitle:string;slug:string}){
