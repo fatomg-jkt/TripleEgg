@@ -39,3 +39,13 @@ export function calculateCashFlow(rows:FinancialTransaction[]){
   const netChange=operatingTotal+investingTotal+financingTotal+otherTotal;
   return {operating,investing,financing,other,operatingTotal,investingTotal,financingTotal,otherTotal,openingBalance:0,netChange,closingBalance:netChange};
 }
+
+export function calculateDashboard(rows:FinancialTransaction[]){
+  const balanceRows=rows.filter(row=>row.statement_type==='balance-sheet'),incomeRows=rows.filter(row=>row.statement_type==='income-statement'),legacy=rows.filter(row=>!row.statement_type||row.statement_type==='journal');
+  const balanceSource=balanceRows.length?balanceRows:legacy,incomeSource=incomeRows.length?incomeRows:legacy;
+  const sum=(source:FinancialTransaction[],types:FinancialTransaction['account_type'][])=>source.filter(row=>types.includes(row.account_type)).reduce((total,row)=>total+transactionBalance(row),0);
+  const asset=sum(balanceSource,['asset','cash','receivable','inventory']),liability=sum(balanceSource,['liability','payable']),equity=sum(balanceSource,['equity']),revenue=sum(incomeSource,['revenue']),expense=sum(incomeSource,['expense']);
+  const kpis={asset,liability,equity,revenue,expense,profit:revenue-expense,cash:sum(balanceSource,['cash']),receivable:sum(balanceSource,['receivable']),inventory:sum(balanceSource,['inventory']),payable:sum(balanceSource,['payable'])};
+  const monthly=Array.from({length:12},(_,index)=>{const month=index+1,selected=incomeSource.filter(row=>row.month===month),income=selected.filter(row=>row.account_type==='revenue').reduce((total,row)=>total+transactionBalance(row),0),expenseValue=selected.filter(row=>row.account_type==='expense').reduce((total,row)=>total+transactionBalance(row),0);return {month,income,expense:expenseValue,profit:income-expenseValue}}).filter(row=>row.income||row.expense);
+  return {kpis,monthly,hasData:rows.length>0};
+}
