@@ -1,6 +1,6 @@
 'use client';
 
-import {useMemo} from 'react';
+import {createContext,useContext,useEffect,useMemo,useRef,useState} from 'react';
 import type {LucideIcon} from 'lucide-react';
 import {Bot,Building2,ChartNoAxesCombined,Boxes,Landmark,Percent,ReceiptText,Scale,ShoppingCart,Target,TrendingUp,Wallet} from 'lucide-react';
 import {Bar,BarChart,CartesianGrid,Cell,Legend,Line,LineChart,Pie,PieChart,ResponsiveContainer,Tooltip,XAxis,YAxis} from 'recharts';
@@ -18,58 +18,75 @@ const toneStroke:Record<string,string>={emerald:'#10b981',blue:'#3b82f6',cyan:'#
 
 type KPIItem={title:string;value:number;icon:LucideIcon;tone:string;kind:'currency'|'percent';trend?:number[]};
 
-export function useDashboardData(){
-  const store=useFinancial();
-  const filtered=useMemo(()=>applyFilters(store.transactions,store.filters),[store.transactions,store.filters]);
-  const summary=useMemo(()=>calculateDashboard(filtered),[filtered]);
-  const incomeRows=useMemo(()=>filtered.filter(row=>row.statement_type==='income-statement'||!row.statement_type||row.statement_type==='journal'),[filtered]);
-  const labaRugi=useMemo(()=>calculateLabaRugi(incomeRows),[incomeRows]);
-  const monthly=summary.monthly;
-  const revenueTrend=monthly.map(x=>x.income);
-  const profitTrend=monthly.map(x=>x.profit);
-  const expenseTrend=monthly.map(x=>x.expense);
-  const marginTrend=monthly.map(x=>x.income?x.profit/x.income*100:0);
-  const flat=(value:number)=>[value,value,value];
-  const k=summary.kpis;
+function useDashboardDataValue(){
+  const {transactions,filters}=useFinancial();
+  return useMemo(()=>{
+    const filtered=applyFilters(transactions,filters);
+    const summary=calculateDashboard(filtered);
+    const incomeRows=filtered.filter(row=>row.statement_type==='income-statement'||!row.statement_type||row.statement_type==='journal');
+    const labaRugi=calculateLabaRugi(incomeRows);
+    const monthly=summary.monthly;
+    const revenueTrend=monthly.map(x=>x.income);
+    const profitTrend=monthly.map(x=>x.profit);
+    const expenseTrend=monthly.map(x=>x.expense);
+    const marginTrend=monthly.map(x=>x.income?x.profit/x.income*100:0);
+    const flat=(value:number)=>[value,value,value];
+    const k=summary.kpis;
+    const balanceKpis:KPIItem[]=[
+      {title:'Kas & Bank',value:k.cash,icon:Wallet,tone:'emerald',kind:'currency',trend:flat(k.cash)},
+      {title:'Persediaan',value:k.inventory,icon:Boxes,tone:'blue',kind:'currency',trend:flat(k.inventory)},
+      {title:'Total Aset',value:k.asset,icon:Building2,tone:'cyan',kind:'currency',trend:flat(k.asset)},
+      {title:'Total Liabilitas',value:k.liability,icon:Scale,tone:'violet',kind:'currency',trend:flat(k.liability)},
+      {title:'Total Ekuitas',value:k.equity,icon:Landmark,tone:'amber',kind:'currency',trend:flat(k.equity)},
+    ];
+    const incomeKpis:KPIItem[]=[
+      {title:'Pendapatan',value:k.revenue,icon:TrendingUp,tone:'emerald',kind:'currency',trend:revenueTrend},
+      {title:'Laba Bersih',value:k.profit,icon:ChartNoAxesCombined,tone:'blue',kind:'currency',trend:profitTrend},
+      {title:'HPP / COGS',value:labaRugi.totalHpp,icon:ShoppingCart,tone:'amber',kind:'currency',trend:flat(labaRugi.totalHpp)},
+      {title:'Beban / Biaya Operasional',value:labaRugi.totalExpense,icon:ReceiptText,tone:'red',kind:'currency',trend:expenseTrend},
+      {title:'Margin Laba Bersih',value:labaRugi.netMargin,icon:Percent,tone:'violet',kind:'percent',trend:marginTrend},
+    ];
+    return {rows:filtered,monthly,balanceKpis,incomeKpis,labaRugi,kpis:k};
+  },[transactions,filters]);
+}
 
-  const balanceKpis:KPIItem[]=[
-    {title:'Kas & Bank',value:k.cash,icon:Wallet,tone:'emerald',kind:'currency',trend:flat(k.cash)},
-    {title:'Persediaan',value:k.inventory,icon:Boxes,tone:'blue',kind:'currency',trend:flat(k.inventory)},
-    {title:'Total Aset',value:k.asset,icon:Building2,tone:'cyan',kind:'currency',trend:flat(k.asset)},
-    {title:'Total Liabilitas',value:k.liability,icon:Scale,tone:'violet',kind:'currency',trend:flat(k.liability)},
-    {title:'Total Ekuitas',value:k.equity,icon:Landmark,tone:'amber',kind:'currency',trend:flat(k.equity)},
-  ];
-  const incomeKpis:KPIItem[]=[
-    {title:'Pendapatan',value:k.revenue,icon:TrendingUp,tone:'emerald',kind:'currency',trend:revenueTrend},
-    {title:'Laba Bersih',value:k.profit,icon:ChartNoAxesCombined,tone:'blue',kind:'currency',trend:profitTrend},
-    {title:'HPP / COGS',value:labaRugi.totalHpp,icon:ShoppingCart,tone:'amber',kind:'currency',trend:flat(labaRugi.totalHpp)},
-    {title:'Beban / Biaya Operasional',value:labaRugi.totalExpense,icon:ReceiptText,tone:'red',kind:'currency',trend:expenseTrend},
-    {title:'Margin Laba Bersih',value:labaRugi.netMargin,icon:Percent,tone:'violet',kind:'percent',trend:marginTrend},
-  ];
-  return {store,rows:filtered,monthly,balanceKpis,incomeKpis,labaRugi,kpis:k};
+type DashboardData=ReturnType<typeof useDashboardDataValue>;
+const DashboardDataContext=createContext<DashboardData|null>(null);
+export function DashboardDataProvider({children}:{children:React.ReactNode}){
+  const value=useDashboardDataValue();
+  return <DashboardDataContext.Provider value={value}>{children}</DashboardDataContext.Provider>;
+}
+export function useDashboardData(){
+  const value=useContext(DashboardDataContext);
+  if(!value)throw new Error('DashboardDataProvider is required');
+  return value;
 }
 
 const unique=(a:string[])=>Array.from(new Set(a.filter(Boolean))).sort();
 export function FilterBar({hidePeriodMonth=false}:{hidePeriodMonth?:boolean}={}){
   const {transactions,budgets,filters,setFilters}=useFinancial();
-  const filterRows=[...transactions,...budgets];
+  const fields=useMemo<[string,keyof DashboardFilters,[string,string][]][]>(()=>{
+    const filterRows=[...transactions,...budgets];
+    return [
+      ['Periode','period',[['all','Semua Periode'],...unique(filterRows.map(x=>x.period)).map(x=>[x,x] as [string,string])]],
+      ['Bulan','month',[['all','Semua Bulan'],...monthNames.map((x,i)=>[String(i+1),x] as [string,string])]],
+      ['Tahun','year',[['all','Semua Tahun'],...unique(filterRows.map(x=>String(x.year))).map(x=>[x,x] as [string,string])]],
+      ['Company','company_id',[['all','Semua Perusahaan'],...unique(filterRows.map(x=>x.company_id)).map(x=>[x,x] as [string,string])]],
+      ['Department','department_id',[['all','Semua Department'],...unique(filterRows.map(x=>x.department_id)).map(x=>[x,x] as [string,string])]],
+      ['Cost Center','cost_center_id',[['all','Semua Cost Center'],...unique(filterRows.map(x=>x.cost_center_id)).map(x=>[x,x] as [string,string])]],
+    ];
+  },[transactions,budgets]);
   const update=(key:keyof DashboardFilters,value:string)=>setFilters({...filters,[key]:value});
-  const fields:[string,keyof DashboardFilters,[string,string][]][]=[
-    ['Periode','period',[['all','Semua Periode'],...unique(filterRows.map(x=>x.period)).map(x=>[x,x] as [string,string])]],
-    ['Bulan','month',[['all','Semua Bulan'],...monthNames.map((x,i)=>[String(i+1),x] as [string,string])]],
-    ['Tahun','year',[['all','Semua Tahun'],...unique(filterRows.map(x=>String(x.year))).map(x=>[x,x] as [string,string])]],
-    ['Company','company_id',[['all','Semua Perusahaan'],...unique(filterRows.map(x=>x.company_id)).map(x=>[x,x] as [string,string])]],
-    ['Department','department_id',[['all','Semua Department'],...unique(filterRows.map(x=>x.department_id)).map(x=>[x,x] as [string,string])]],
-    ['Cost Center','cost_center_id',[['all','Semua Cost Center'],...unique(filterRows.map(x=>x.cost_center_id)).map(x=>[x,x] as [string,string])]],
-  ];
   const visible=hidePeriodMonth?fields.filter(([,key])=>key!=='period'&&key!=='month'&&key!=='year'):fields;
   return <div className="card grid grid-cols-2 gap-3 p-4 md:grid-cols-3 xl:grid-cols-6">{visible.map(([label,key,options])=><label key={key}><span className="label">{label}</span><select value={filters[key]} onChange={e=>update(key,e.target.value)} className="field mt-1 w-full">{options.map(([v,l])=><option value={v} key={v}>{l}</option>)}</select></label>)}</div>;
 }
 
 function delta(current:number,previous:number){if(!previous)return 0;return (current-previous)/Math.abs(previous)*100;}
 function Sparkline({data,color}:{data:number[];color:string}){
-  const rows=(data.length?data:[0,0,0]).map((value,index)=>({index,value}));
-  return <div className="h-[34px] w-[86px]"><ResponsiveContainer width="100%" height="100%"><LineChart data={rows}><Line dataKey="value" type="monotone" stroke={color} strokeWidth={2} dot={false} isAnimationActive={false}/></LineChart></ResponsiveContainer></div>;
+  const values=data.length?data:[0,0,0];
+  const min=Math.min(...values),max=Math.max(...values),range=max-min||1;
+  const points=values.map((value,index)=>{const x=values.length===1?43:index/(values.length-1)*84+1;const y=32-(value-min)/range*30;return `${x.toFixed(1)},${y.toFixed(1)}`}).join(' ');
+  return <svg aria-hidden="true" className="h-[34px] w-[86px] shrink-0" viewBox="0 0 86 34" preserveAspectRatio="none"><polyline points={points} fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke"/></svg>;
 }
 
 function KPISection({title,items}:{title:string;items:KPIItem[]}){
@@ -98,17 +115,34 @@ function expenseComposition(rows:FinancialTransaction[]){
   return groupedTransactions(expense).map(x=>({name:x.category,value:Math.abs(x.total)})).filter(x=>x.value>0).sort((a,b)=>b.value-a.value).slice(0,5);
 }
 
+function useNearViewport(){
+  const ref=useRef<HTMLElement|null>(null);
+  const [visible,setVisible]=useState(false);
+  useEffect(()=>{
+    const node=ref.current;
+    if(!node)return;
+    if(typeof IntersectionObserver==='undefined'){setVisible(true);return;}
+    const observer=new IntersectionObserver(entries=>{if(entries.some(entry=>entry.isIntersecting)){setVisible(true);observer.disconnect();}},{rootMargin:'320px'});
+    observer.observe(node);
+    return ()=>observer.disconnect();
+  },[]);
+  return {ref,visible};
+}
+
 export function Charts(){
   const {monthly,rows,labaRugi}=useDashboardData();
-  const data=monthly.map(row=>({...row,month:monthNames[row.month-1]}));
-  const composition=expenseComposition(rows);
-  const totalComp=composition.reduce((sum,item)=>sum+item.value,0);
-  if(!data.length)return <div className="grid gap-4 xl:grid-cols-4">{['Trend Pendapatan vs Beban','Laba Bersih per Bulan','Komposisi Beban Operasional','Insight Utama'].map(title=><Chart title={title} key={title}><Empty/></Chart>)}</div>;
-  return <section>
-    <div className="mb-2 flex items-center gap-3"><span className="text-[11px] font-semibold uppercase tracking-[.18em] text-blue-300">Analisa & Insight Otomatis</span><div className="h-px flex-1 bg-[#203047]"/></div>
+  const {ref,visible}=useNearViewport();
+  const data=useMemo(()=>monthly.map(row=>({...row,month:monthNames[row.month-1]})),[monthly]);
+  const composition=useMemo(()=>expenseComposition(rows),[rows]);
+  const totalComp=useMemo(()=>composition.reduce((sum,item)=>sum+item.value,0),[composition]);
+  const heading=<div className="mb-2 flex items-center gap-3"><span className="text-[11px] font-semibold uppercase tracking-[.18em] text-blue-300">Analisa & Insight Otomatis</span><div className="h-px flex-1 bg-[#203047]"/></div>;
+  if(!visible)return <section ref={ref}>{heading}<div className="grid gap-4 xl:grid-cols-12"><div className="card h-[270px] xl:col-span-4"/><div className="card h-[270px] xl:col-span-3"/><div className="card h-[270px] xl:col-span-3"/><div className="card h-[270px] xl:col-span-2"/></div></section>;
+  if(!data.length)return <section ref={ref}>{heading}<div className="grid gap-4 xl:grid-cols-4">{['Trend Pendapatan vs Beban','Laba Bersih per Bulan','Komposisi Beban Operasional','Insight Utama'].map(title=><Chart title={title} key={title}><Empty/></Chart>)}</div></section>;
+  return <section ref={ref}>
+    {heading}
     <div className="grid gap-4 xl:grid-cols-12">
-      <div className="xl:col-span-4"><Chart title="Trend Pendapatan vs Beban"><ResponsiveContainer width="100%" height={235}><LineChart data={data}><CartesianGrid stroke="#203047" strokeDasharray="3 3"/><XAxis dataKey="month" stroke="#64748b" tick={{fontSize:10}}/><YAxis stroke="#64748b" tickFormatter={compact} tick={{fontSize:10}}/><Tooltip {...tooltipStyle}/><Legend/><Line dataKey="income" name="Pendapatan" stroke="#10b981" strokeWidth={2.5} dot={{r:3}}/><Line dataKey="expense" name="Beban Operasional" stroke="#ef4444" strokeWidth={2.5} dot={{r:3}}/></LineChart></ResponsiveContainer></Chart></div>
-      <div className="xl:col-span-3"><Chart title="Laba Bersih per Bulan"><ResponsiveContainer width="100%" height={235}><BarChart data={data}><CartesianGrid stroke="#203047" strokeDasharray="3 3"/><XAxis dataKey="month" stroke="#64748b" tick={{fontSize:10}}/><YAxis stroke="#64748b" tickFormatter={compact} tick={{fontSize:10}}/><Tooltip {...tooltipStyle}/><Bar dataKey="profit" name="Laba Bersih" fill="#2563eb" radius={[5,5,0,0]}/></BarChart></ResponsiveContainer></Chart></div>
+      <div className="xl:col-span-4"><Chart title="Trend Pendapatan vs Beban"><ResponsiveContainer width="100%" height={235}><LineChart data={data}><CartesianGrid stroke="#203047" strokeDasharray="3 3"/><XAxis dataKey="month" stroke="#64748b" tick={{fontSize:10}}/><YAxis stroke="#64748b" tickFormatter={compact} tick={{fontSize:10}}/><Tooltip {...tooltipStyle}/><Legend/><Line dataKey="income" name="Pendapatan" stroke="#10b981" strokeWidth={2.5} dot={{r:3}} isAnimationActive={false}/><Line dataKey="expense" name="Beban Operasional" stroke="#ef4444" strokeWidth={2.5} dot={{r:3}} isAnimationActive={false}/></LineChart></ResponsiveContainer></Chart></div>
+      <div className="xl:col-span-3"><Chart title="Laba Bersih per Bulan"><ResponsiveContainer width="100%" height={235}><BarChart data={data}><CartesianGrid stroke="#203047" strokeDasharray="3 3"/><XAxis dataKey="month" stroke="#64748b" tick={{fontSize:10}}/><YAxis stroke="#64748b" tickFormatter={compact} tick={{fontSize:10}}/><Tooltip {...tooltipStyle}/><Bar dataKey="profit" name="Laba Bersih" fill="#2563eb" radius={[5,5,0,0]} isAnimationActive={false}/></BarChart></ResponsiveContainer></Chart></div>
       <div className="xl:col-span-3"><Chart title="Komposisi Beban Operasional"><div className="grid grid-cols-2 items-center gap-2"><div className="h-[220px]"><ResponsiveContainer width="100%" height="100%"><PieChart><Pie data={composition} dataKey="value" nameKey="name" innerRadius={50} outerRadius={76} paddingAngle={2} isAnimationActive={false}>{composition.map((_,index)=><Cell key={index} fill={chartColors[index%chartColors.length]}/>)}</Pie><Tooltip {...tooltipStyle}/></PieChart></ResponsiveContainer></div><div className="min-w-0 space-y-2">{composition.length?composition.map((item,index)=><div key={item.name} className="flex items-center justify-between gap-2 text-[10px]"><span className="truncate text-slate-300"><span className="mr-2 inline-block h-2 w-2 rounded-full" style={{background:chartColors[index%chartColors.length]}}/>{item.name}</span><b>{totalComp?pct(item.value/totalComp*100):'0%'}</b></div>):<div className="text-[10px] text-slate-500">Belum ada rincian beban.</div>}</div></div></Chart></div>
       <div className="xl:col-span-2"><Chart title="Insight Utama"><div className="space-y-3"><InsightMini icon={TrendingUp} label="Pendapatan" value={rupiah(labaRugi.totalRevenue)} tone="emerald"/><InsightMini icon={ChartNoAxesCombined} label="Laba Bersih" value={rupiah(labaRugi.netProfit)} tone="blue"/><InsightMini icon={Percent} label="Margin Laba Bersih" value={pct(labaRugi.netMargin)} tone="violet"/></div></Chart></div>
     </div>
