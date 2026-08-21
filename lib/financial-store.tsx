@@ -11,12 +11,14 @@ export const accountType=(value:string,name=''):AccountType=>{const v=`${value} 
 type Store={transactions:FinancialTransaction[];budgets:BudgetRecord[];files:ImportRecord[];filters:DashboardFilters;setFilters:(v:DashboardFilters)=>void;importData:(t:FinancialTransaction[],f:ImportRecord)=>Promise<void>;importBudget:(b:BudgetRecord[],f:ImportRecord)=>Promise<void>;deleteFile:(id:string)=>Promise<void>;deleteFiltered:(f:DashboardFilters)=>Promise<void>;ready:boolean;storageError:string};
 const Context=createContext<Store|null>(null);
 
-type Payload={transactions:FinancialTransaction[];budgets:BudgetRecord[];files:ImportRecord[]};
+type StoredFile=ImportRecord&{is_active?:boolean;version?:number};
+type Payload={transactions:FinancialTransaction[];budgets:BudgetRecord[];files:StoredFile[]};
 async function requestJson(url:string,init?:RequestInit){const response=await fetch(url,{cache:'no-store',...init});const data=await response.json().catch(()=>({}));if(!response.ok)throw new Error(data.error||'Permintaan database gagal.');return data}
+const fileKey=(file:ImportRecord)=>`${file.company_id}::${file.module==='Budget'?'budget':file.statement_type||'journal'}::${file.period}`;
 
 export function FinancialProvider({children,restaurant}:{children:React.ReactNode;restaurant:Restaurant}){
   const TX_KEY=`restaurants.${restaurant.slug}.financial_transactions.v2`,FILE_KEY=`restaurants.${restaurant.slug}.uploaded_files.v2`,BUDGET_KEY=`restaurants.${restaurant.slug}.budgets.v2`;
-  const MIGRATION_KEY=`restaurants.${restaurant.slug}.postgres_migrated.v1`;
+  const MIGRATION_KEY=`restaurants.${restaurant.slug}.postgres_migrated.v2`;
   const restaurantId=restaurant.id;
   const [transactions,setTransactions]=useState<FinancialTransaction[]>([]),[budgets,setBudgets]=useState<BudgetRecord[]>([]),[files,setFiles]=useState<ImportRecord[]>([]),[filters,setFilters]=useState(emptyFilters),[ready,setReady]=useState(false),[storageError,setStorageError]=useState('');
 
@@ -28,21 +30,24 @@ export function FinancialProvider({children,restaurant}:{children:React.ReactNod
     try{
       let data=await refresh();
       if(cancelled)return;
-      const dbEmpty=!data.transactions.length&&!data.budgets.length&&!data.files.length;
       const alreadyMigrated=localStorage.getItem(MIGRATION_KEY)==='1';
-      if(dbEmpty&&!alreadyMigrated){
+      if(!alreadyMigrated){
         const legacyTransactions=JSON.parse(localStorage.getItem(TX_KEY)||restaurant.slug==='triple-egg'&&localStorage.getItem(LEGACY_TX_KEY)||'[]') as FinancialTransaction[];
         const legacyBudgets=JSON.parse(localStorage.getItem(BUDGET_KEY)||restaurant.slug==='triple-egg'&&localStorage.getItem(LEGACY_BUDGET_KEY)||'[]') as BudgetRecord[];
         const legacyFiles=JSON.parse(localStorage.getItem(FILE_KEY)||restaurant.slug==='triple-egg'&&localStorage.getItem(LEGACY_FILE_KEY)||'[]') as ImportRecord[];
-        if(legacyFiles.length){
-          for(const file of legacyFiles){
-            const isBudget=file.module==='Budget';
-            const rows=isBudget?legacyBudgets.filter(row=>row.source_file_id===file.id):legacyTransactions.filter(row=>row.source_file_id===file.id);
-            if(!rows.length)continue;
-            await requestJson('/api/financial-data',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({kind:isBudget?'budget':'financial',file,rows})});
-          }
-          data=await refresh();
+        const databaseIds=new Set(data.files.map(file=>file.id));
+        const activeDatabaseKeys=new Set(data.files.filter(file=>file.is_active!==false).map(fileKey));
+        let migrated=false;
+        for(const file of legacyFiles){
+          if(databaseIds.has(file.id)||activeDatabaseKeys.has(fileKey(file)))continue;
+          const isBudget=file.module==='Budget';
+          const rows=isBudget?legacyBudgets.filter(row=>row.source_file_id===file.id):legacyTransactions.filter(row=>row.source_file_id===file.id);
+          if(!rows.length)continue;
+          await requestJson('/api/financial-data',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({kind:isBudget?'budget':'financial',file,rows})});
+          migrated=true;
+          activeDatabaseKeys.add(fileKey(file));
         }
+        if(migrated)data=await refresh();
         localStorage.setItem(MIGRATION_KEY,'1');
       }
       if(!cancelled)applyPayload(data);
