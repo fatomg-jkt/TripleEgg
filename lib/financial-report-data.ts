@@ -32,13 +32,18 @@ export function calculateLabaRugi(rows:FinancialTransaction[]){
 
 export function calculateCashFlow(rows:FinancialTransaction[]){
   const category=(row:FinancialTransaction)=>`${row.report_category||row.description}`.toLowerCase();
-  const operating=rows.filter(row=>/operasi|operating|operasional/.test(category(row)));
-  const investing=rows.filter(row=>/investasi|investing/.test(category(row)));
-  const financing=rows.filter(row=>/pendanaan|financing/.test(category(row)));
-  const other=rows.filter(row=>!operating.includes(row)&&!investing.includes(row)&&!financing.includes(row));
+  const openingRows=rows.filter(row=>category(row).includes('cash flow summary - opening'));
+  const closingRows=rows.filter(row=>category(row).includes('cash flow summary - closing'));
+  const flowRows=rows.filter(row=>!openingRows.includes(row)&&!closingRows.includes(row));
+  const operating=flowRows.filter(row=>/operasi|operating|operasional/.test(category(row)));
+  const investing=flowRows.filter(row=>/investasi|investing/.test(category(row)));
+  const financing=flowRows.filter(row=>/pendanaan|financing/.test(category(row)));
+  const other=flowRows.filter(row=>!operating.includes(row)&&!investing.includes(row)&&!financing.includes(row));
   const operatingTotal=transactionTotal(operating),investingTotal=transactionTotal(investing),financingTotal=transactionTotal(financing),otherTotal=transactionTotal(other);
   const netChange=operatingTotal+investingTotal+financingTotal+otherTotal;
-  return {operating,investing,financing,other,operatingTotal,investingTotal,financingTotal,otherTotal,openingBalance:0,netChange,closingBalance:netChange};
+  const openingBalance=openingRows.length?transactionTotal(openingRows):0;
+  const closingBalance=closingRows.length?transactionTotal(closingRows):openingBalance+netChange;
+  return {operating,investing,financing,other,operatingTotal,investingTotal,financingTotal,otherTotal,openingBalance,netChange,closingBalance};
 }
 
 export function calculateDashboard(rows:FinancialTransaction[]){
