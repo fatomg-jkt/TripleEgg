@@ -1,3 +1,4 @@
+import type {PoolClient} from 'pg';
 import {database} from './db';
 import type {BudgetRecord,FinancialTransaction,ImportRecord,Restaurant} from './schema';
 
@@ -80,7 +81,7 @@ export async function loadFinancialData(restaurant:Restaurant){
   return {transactions:transactions.rows.map(mapTransaction),budgets:budgets.rows.map(mapBudget),files:files.rows.map(mapImport)};
 }
 
-async function insertTransactionRows(client:Awaited<ReturnType<ReturnType<typeof database>['connect']>>,rows:FinancialTransaction[],importId:string,restaurantId:string){
+async function insertTransactionRows(client:PoolClient,rows:FinancialTransaction[],importId:string,restaurantId:string){
   const chunkSize=200;
   for(let start=0;start<rows.length;start+=chunkSize){
     const chunk=rows.slice(start,start+chunkSize),values:unknown[]=[];
@@ -88,7 +89,7 @@ async function insertTransactionRows(client:Awaited<ReturnType<ReturnType<typeof
     await client.query(`INSERT INTO financial_transactions(id,import_id,restaurant_id,transaction_date,account_code,account_name,account_type,debit,credit,company_id,department_id,cost_center_id,period,month,year,description,report_category,statement_type,source_file_id) VALUES ${tuples.join(',')}`,values);
   }
 }
-async function insertBudgetRows(client:Awaited<ReturnType<ReturnType<typeof database>['connect']>>,rows:BudgetRecord[],importId:string,restaurantId:string){
+async function insertBudgetRows(client:PoolClient,rows:BudgetRecord[],importId:string,restaurantId:string){
   const chunkSize=250;
   for(let start=0;start<rows.length;start+=chunkSize){
     const chunk=rows.slice(start,start+chunkSize),values:unknown[]=[];
