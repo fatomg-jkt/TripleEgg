@@ -1,7 +1,7 @@
 'use client';
 import {createContext,useContext,useEffect,useState} from 'react';
 import {useRouter} from 'next/navigation';
-import type {PermissionAction,Restaurant} from './schema';
+import type {Restaurant} from './schema';
 type User={name:string;permissions:string[];company:string;department:string;costCenter:string};
 type Value={user:User|null;restaurants:Restaurant[];activeRestaurant:Restaurant|null;loading:boolean;selectRestaurant:(slug:string)=>Promise<void>};
 const Context=createContext<Value>({user:null,restaurants:[],activeRestaurant:null,loading:true,selectRestaurant:async()=>{}});
