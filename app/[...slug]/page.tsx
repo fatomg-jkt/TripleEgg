@@ -1,5 +1,6 @@
 import {ClientShell} from '../client-shell';
 import {ModulePage} from '@/components/page';
+import {FinancialModulePage} from '@/components/financial-module-page';
 import {pageMeta} from '@/lib/data';
 import {BankStatements} from '@/components/bank-statements';
 import {ProfitabilityDashboard,RatioDashboard,TrendDashboard} from '@/components/analytics';
@@ -22,5 +23,6 @@ export default function Page({params}:{params:{slug:string[]}}){
   if(route==='analisa/rasio') return <ClientShell><RatioDashboard/></ClientShell>;
   if(route==='analisa/trend') return <ClientShell><TrendDashboard/></ClientShell>;
   if(route==='analisa/profitabilitas') return <ClientShell><ProfitabilityDashboard/></ClientShell>;
+  if(moduleSlug==='neraca'||moduleSlug==='laba-rugi'||moduleSlug==='arus-kas') return <ClientShell><FinancialModulePage title={title} subtitle={subtitle} slug={moduleSlug}/></ClientShell>;
   return <ClientShell><ModulePage title={title} subtitle={subtitle} slug={moduleSlug}/></ClientShell>;
 }
