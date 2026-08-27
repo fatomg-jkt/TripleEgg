@@ -8,7 +8,8 @@ const routeMeta:Record<string,[string,string,string]>={
   'budgeting/ringkasan':['Ringkasan Budget','Pantau alokasi dan realisasi anggaran','ringkasan-budget'],
   'budgeting/budget-vs-actual':['Budget vs Actual','Perbandingan anggaran dengan realisasi','budget-vs-actual'],
   'budgeting/department':['Budget per Department','Analisis budget berdasarkan department','budget-department'],
-  'budgeting/account':['Budget per Account','Analisis budget berdasarkan akun','budget-account'],
+  'budgeting/account':['Budget per Biaya','Analisis budget berdasarkan biaya','budget-account'],
+  'budgeting/sisa':['Sisa Budget','Pantau sisa anggaran setelah dikurangi realisasi','budget-remaining'],
   'budgeting/upload':['Upload Budget','Kelola dan proses data anggaran','upload-budget']
 };
 
