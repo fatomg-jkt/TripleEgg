@@ -11,7 +11,6 @@ const monthNames=['Januari','Februari','Maret','April','Mei','Juni','Juli','Agus
 const monthMap:Record<string,number>={jan:1,january:1,feb:2,february:2,mar:3,march:3,apr:4,april:4,may:5,jun:6,june:6,jul:7,july:7,aug:8,august:8,sep:9,september:9,oct:10,october:10,nov:11,november:11,dec:12,december:12};
 const text=(value:unknown)=>String(value??'').trim();
 const norm=(value:string)=>value.toLowerCase().replace(/\s+/g,' ').trim();
-const isUpper=(value:string)=>/[A-Z]/.test(value)&&value===value.toUpperCase();
 const ancestor=(parents:string[],value:string)=>parents.some(parent=>norm(parent)===value);
 
 function numberValue(value:unknown):number|null{
@@ -73,13 +72,12 @@ export function parseAccurateMultiPeriodWorkbook(workbook:XLSX.WorkBook):Accurat
     const parents=[...stack],next=treeRows[index+1],hasChild=!!next&&next.depth>row.depth,hasValue=row.values.some(value=>value!==null),lower=norm(row.name);
     if(derivedSection(row.name)){suppressBelowDepth=row.depth;stack[row.depth]=row.name;stack.length=row.depth+1;continue}
     const underSuppressed=suppressBelowDepth!==null&&row.depth>suppressBelowDepth;
-    const summary=calculated(row.name,statementType)||isUpper(row.name)&&hasChild;
-    const analyticalParent=hasValue&&hasChild&&!isUpper(row.name)&&!summary;
+    const summary=calculated(row.name,statementType);
     if(hasValue&&!summary&&!underSuppressed){
       const accountType=statementType==='balance-sheet'?classifyBalance(row.name,parents):statementType==='income-statement'?classifyIncome(row.name,parents):'cash';
       const category=categoryFromParents(parents,row.name);
       row.values.forEach((amount,periodIndex)=>{if(amount!==null)periodRows[periodIndex].push({name:row.name,category,accountType,amount,depth:row.depth})});
-      if(analyticalParent)suppressBelowDepth=row.depth;
+      if(hasChild)suppressBelowDepth=row.depth;
     }
     if(!lower.startsWith('total ')){stack[row.depth]=row.name;stack.length=row.depth+1}
   }
